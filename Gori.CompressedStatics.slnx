@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Gori.CompressedStatics.CodeFix/Gori.CompressedStatics.CodeFix.csproj" Id="23d3e534-5d81-411a-92ea-6eb6fdcd8b54" />
+  <Project Path="Gori.CompressedStatics.Package/Gori.CompressedStatics.Package.csproj" Id="b6a1cb83-5535-4139-913c-01d80566d601" />
+  <Project Path="Gori.CompressedStatics.Testing/Gori.CompressedStatics.Testing.csproj" />
+  <Project Path="Gori.CompressedStatics/Gori.CompressedStatics.csproj" />
+</Solution>

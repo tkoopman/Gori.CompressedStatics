@@ -1,0 +1,88 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
+    <Authors>Tim Koopman</Authors>
+    <AnalysisLevel>latest-all</AnalysisLevel>
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+  
+  <PropertyGroup>
+    <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+    <PackageId>Gori.CompressedStatics.Analyzer</PackageId>
+    <PackageLicenseExpression>MIT-0</PackageLicenseExpression>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <DefineConstants>$(DefineConstants);Gori_CompressedStatics_EmitAttributes</DefineConstants>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <IncludeSymbols>false</IncludeSymbols>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <Compile Remove="Templates\DecompressStatics.cs" />
+    <None Include="Templates\DecompressStatics.cs" />
+    <AdditionalFiles Include="../AnalyzerReleases.Shipped.md" Link="AnalyzerReleases.Shipped.md" />
+    <AdditionalFiles Include="../AnalyzerReleases.Unshipped.md" Link="AnalyzerReleases.Unshipped.md" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- CodeStringBuilder and it's dependency BCL Memory-->
+    <PackageReference Include="Gori.CodeStringBuilder" Version="1.1.2" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.12" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PolySharp" Version="1.16.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="System.Memory" Version="4.6.3" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Gori.CompressedStatics.CodeFix" />
+    <InternalsVisibleTo Include="Gori.CompressedStatics.Testing" />
+  </ItemGroup>
+
+  <!-- Custom Target to Zip Files Pre-Build -->
+  <Target Name="ZipResourcesBeforeBuild" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <TempZipDir>$(IntermediateOutputPath)ZipTemp\</TempZipDir>
+      <ResourceZipFile>$(IntermediateOutputPath)Source.Templates.zip</ResourceZipFile>
+    </PropertyGroup>
+    
+    <!-- 1. Ensure temp dir is clean and exists -->
+    <RemoveDir Directories="$(TempZipDir)" />
+    <MakeDir Directories="$(TempZipDir)" />
+
+    <!-- 2. Copy the source files to the temp directory -->
+    <Copy SourceFiles="$(ProjectDir)AttributeMarkers.cs" DestinationFolder="$(TempZipDir)" />
+    <Copy SourceFiles="$(ProjectDir)Templates\DecompressStatics.cs" DestinationFolder="$(TempZipDir)" />
+
+    <!-- 3. Compress the directory into the intermediate output folder -->
+    <ZipDirectory SourceDirectory="$(TempZipDir)" DestinationFile="$(ResourceZipFile)" Overwrite="true" />
+
+    <!-- 4. Dynamically include the zip as an embedded resource -->
+    <ItemGroup>
+      <EmbeddedResource Include="$(ResourceZipFile)" LogicalName="Gori.CompressedStatics.Source.Templates.zip" />
+    </ItemGroup>
+
+    <!-- 5. Clean up the temp directory -->
+    <RemoveDir Directories="$(TempZipDir)" />
+
+    <Message Importance="high" Text="Successfully compressed $(TempZipDir) into $(ResourceZipFile)" />
+  </Target>
+
+</Project>
