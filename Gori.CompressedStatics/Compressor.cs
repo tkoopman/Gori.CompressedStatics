@@ -9,7 +9,7 @@ namespace Gori.CompressedStatics;
 /// Provides methods for compressing byte arrays using various compression algorithms.
 /// In Auto or AutoForced modes, it will try all available algorithms and return the one that produces the smallest output.
 ///
-/// This is used at compile time to compress the values of static fields in the Gori.CompressedStatics library.
+/// This is used at compile time to compress the values in the Gori.CompressedStatics library.
 /// </summary>
 public static class Compressor
 {

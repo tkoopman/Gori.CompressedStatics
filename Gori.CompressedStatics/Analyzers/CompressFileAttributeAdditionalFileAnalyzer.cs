@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 
-using Gori.Roslyn;
+using Gori.Common.Roslyn;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -9,8 +9,8 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace Gori.CompressedStatics.Analyzers;
 
 /// <summary>
-/// Analyzes the usage of the Compressed attribute to ensure that the specified
-/// file path corresponds to an additional file in the project.
+/// Analyzes CompressFile attributes to ensure that the specified path corresponds
+/// to an additional file or a compiled C# source file.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class CompressFileAttributeAdditionalFileAnalyzer : DiagnosticAnalyzer
@@ -78,13 +78,13 @@ public sealed class CompressFileAttributeAdditionalFileAnalyzer : DiagnosticAnal
             }
 
             if (TryGetAbsoluteFilePath(currentPath, projectPath, filePath, relativeToProject, out string absoluteFilePath)
-                && HasMatchingAdditionalFile(context.Options.AdditionalFiles, absoluteFilePath))
+                && HasMatchingFile(context, absoluteFilePath))
             {
                 continue;
             }
 
             if (TryGetAbsoluteFilePath(currentPath, projectPath, filePath, !relativeToProject, out string alternateAbsoluteFilePath)
-                && HasMatchingAdditionalFile(context.Options.AdditionalFiles, alternateAbsoluteFilePath)
+                && HasMatchingFile(context, alternateAbsoluteFilePath)
                 && TryGetRelativeFilePath(currentPath, projectPath, alternateAbsoluteFilePath, relativeToProject, out string relativeFilePath))
             {
                 ImmutableDictionary<string, string?> properties
@@ -168,17 +168,19 @@ public sealed class CompressFileAttributeAdditionalFileAnalyzer : DiagnosticAnal
             ? path
             : path + Path.DirectorySeparatorChar;
 
-    private static bool HasMatchingAdditionalFile(ImmutableArray<AdditionalText> additionalFiles, string absoluteFilePath)
+    private static bool HasMatchingFile(SymbolAnalysisContext context, string absoluteFilePath)
     {
-        foreach (AdditionalText additionalFile in additionalFiles)
+        foreach (AdditionalText additionalFile in context.Options.AdditionalFiles)
         {
-            if (string.Equals(additionalFile.Path, absoluteFilePath, StringComparison.Ordinal))
+            context.CancellationToken.ThrowIfCancellationRequested();
+
+            if (StringComparer.Ordinal.Equals(Path.GetFullPath(additionalFile.Path), absoluteFilePath))
             {
                 return true;
             }
         }
 
-        return false;
+        return SourceFileHelper.FindSyntaxTree(context.Compilation, absoluteFilePath, context.CancellationToken) is not null;
     }
 
     /// <summary>

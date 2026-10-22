@@ -3,7 +3,7 @@ namespace Gori.CompressedStatics.Generators;
 /// <summary>
 /// The kind of member the compression targets.
 /// </summary>
-internal enum MemberKind
+public enum MemberKind
 {
     /// <summary>
     /// The member kind is unknown or unsupported.

@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using System.Text;
 
-using Gori.Roslyn;
+using Gori.Common.Roslyn;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -12,7 +12,7 @@ namespace Gori.CompressedStatics.Generators;
 /// <summary>
 /// Extracts symbol-free member models, resolves file content, compresses each member
 /// (or a per-type tar blob) once, and emits per-type partial declarations.
-/// Symbol access is confined to the attribute transforms.
+/// Compilation access is confined to input transforms and transformation, before compression and emission.
 /// </summary>
 [Generator(LanguageNames.CSharp)]
 public sealed class CompressStaticsGenerator : IIncrementalGenerator
@@ -24,27 +24,34 @@ public sealed class CompressStaticsGenerator : IIncrementalGenerator
     /// </summary>
     internal const string IndividualMemberTrackingName = "IndividualMember";
 
+    /// <summary>The tracking name for location-independent TAR emission inputs.</summary>
+    internal const string TarTrackingName = "TarEmission";
+
+    /// <summary>The tracking name for transformation results before diagnostics branch off.</summary>
+    internal const string TransformationTrackingName = "Transformation";
+
     /// <inheritdoc/>
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        IncrementalValuesProvider<CompressionMemberInput> stringMembers = context.SyntaxProvider.ForAttributeWithMetadataName(
+        IncrementalValuesProvider<CompressAttributeInfo> stringMembers = context.SyntaxProvider.ForAttributeWithMetadataName(
             Const.CompressStringAttributeFullName,
             static (node, cancellationToken) => node is MethodDeclarationSyntax or PropertyDeclarationSyntax,
-            CompressStaticsTransforms.CreateStringMember);
+            CompressStaticsTransforms.CreateStringMember)
+            .Where(static member => !member.IsNull);
 
-        IncrementalValuesProvider<CompressionMemberInput> fileMembers = context.SyntaxProvider.ForAttributeWithMetadataName(
+        IncrementalValuesProvider<CompressAttributeInfo> fileMembers = context.SyntaxProvider.ForAttributeWithMetadataName(
             Const.CompressFileAttributeFullName,
             static (node, cancellationToken) => node is MethodDeclarationSyntax or PropertyDeclarationSyntax,
-            CompressStaticsTransforms.CreateFileMember);
+            CompressStaticsTransforms.CreateFileMember)
+            .Where(static member => !member.IsNull);
 
         IncrementalValuesProvider<TarMembers> tarMembers = context.SyntaxProvider.ForAttributeWithMetadataName(
             Const.TarCompressAttributeFullName,
-            static (node, cancellationToken) => node is ClassDeclarationSyntax or StructDeclarationSyntax,
-            CompressStaticsTransforms.CreateTarMember);
+            static (node, cancellationToken) => node is TypeDeclarationSyntax,
+            CompressStaticsTransforms.CreateTarMember)
+            .Where(static member => !member.IsNull);
 
-        IncrementalValueProvider<ImmutableArray<(string Path, string? Text)>> additionalTexts = context.AdditionalTextsProvider
-            .Select(static (text, cancellationToken) => (Path.GetFullPath(text.Path), text.GetText(cancellationToken)?.ToString()))
-            .Collect();
+        IncrementalValueProvider<ImmutableArray<AdditionalText>> additionalTexts = context.AdditionalTextsProvider.Collect();
 
         IncrementalValueProvider<string?> projectDirProvider = context.AnalyzerConfigOptionsProvider
             .Select(static (provider, cancellationToken) =>
@@ -58,39 +65,80 @@ public sealed class CompressStaticsGenerator : IIncrementalGenerator
             .Combine(projectDirProvider)
             .Select(static (pair, cancellationToken) => pair.Left.WithProjectPath(pair.Right ?? string.Empty));
 
-        // Resolve text for CompressFile members
-        IncrementalValuesProvider<CompressionMemberInput> resolvedFileMembers = fileMembers
+        IncrementalValuesProvider<(string? SourceValue, bool IsValid)> resolvedFileContents = fileMembers
+            .WithComparer(CompressAttributeInfo.FilePathComparer)
             .Combine(additionalTexts)
             .Combine(supports)
-            .Select(static (pair, cancellationToken) => CompressStaticsTransforms.ResolveFileData(pair.Left.Left, pair.Left.Right, pair.Right, cancellationToken));
+            .Combine(context.CompilationProvider)
+            .Select(static (pair, cancellationToken) =>
+            {
+                CompressAttributeInfo resolved = CompressStaticsTransforms.ResolveFileData(pair.Left.Left.Left, pair.Left.Left.Right, pair.Left.Right, pair.Right, cancellationToken);
+                return (resolved.SourceValue, resolved.IsValid);
+            });
+
+        // Both collections preserve fileMembers order. Reattach content and validity, never cached locations.
+        IncrementalValuesProvider<CompressAttributeInfo> resolvedFileMembers = fileMembers.Collect()
+            .Combine(resolvedFileContents.Collect())
+            .SelectMany(static (pair, cancellationToken) => pair.Left.Select((member, index) => pair.Right[index].IsValid
+                ? member.WithSourceValue(pair.Right[index].SourceValue)
+                : member.Invalidate()));
 
         // Merge string and file members into a single per-element stream.
-        IncrementalValuesProvider<CompressionMemberInput> mergedMembers = stringMembers.Collect()
+        IncrementalValuesProvider<ProcessingResult<CompressAttributeInfo>> transformationResults = stringMembers.Collect()
             .Combine(resolvedFileMembers.Collect())
-            .SelectMany(static (pair, cancellationToken) => pair.Left.AddRange(pair.Right));
+            .SelectMany(static (pair, cancellationToken) => pair.Left.AddRange(pair.Right))
+            .Combine(context.CompilationProvider)
+            .Select(static (pair, cancellationToken) => pair.Left.TransformInput(pair.Right, cancellationToken))
+            .WithTrackingName(TransformationTrackingName);
+
+        context.RegisterSourceOutput(transformationResults, static (productionContext, result) =>
+        {
+            if (result.Diagnostic is DiagnosticInfo diagnostic)
+            {
+                productionContext.ReportDiagnostic(diagnostic.ToDiagnostic(result.Input.Location.ToLocation()));
+            }
+        });
+
+        IncrementalValuesProvider<CompressAttributeInfo> mergedMembers = transformationResults
+            .Select(static (result, cancellationToken) => result.Input);
 
         // Resolve members for tar-covered members
-        IncrementalValuesProvider<(TarMembers Group, Supports Supports)> resolvedTarMembers = tarMembers
-            .Combine(mergedMembers.Where(static member => member.ReturnType != ReturnType.Unsupported && member.IsCoveredByTar)
+        IncrementalValuesProvider<ProcessingResult<TarMembers>> tarResults = tarMembers
+            .Combine(mergedMembers.Where(static member => member.ReturnType is not ReturnType.Unsupported && member.IsCoveredByTar)
                                   .Collect())
             .Select(static (pair, cancellationToken) => CompressStaticsTransforms.ResolveTarMembers(pair.Left, pair.Right, cancellationToken))
-            .Combine(supports);
+            .Combine(supports)
+            .Select(static (pair, cancellationToken) => CompressStaticsTransforms.ValidateCompression(pair.Left, pair.Right));
+
+        context.RegisterSourceOutput(tarResults, static (productionContext, result) =>
+        {
+            if (result.Diagnostic is DiagnosticInfo diagnostic)
+            {
+                productionContext.ReportDiagnostic(diagnostic.ToDiagnostic(result.Input.Location.ToLocation()));
+            }
+        });
 
         // Non-tar members are emitted one file per member. Each member's resolved input is a cached
         // pipeline value, so the source-output callback (where compression happens) only runs for a
         // member whose own input changed; unchanged siblings are never recompressed.
-        IncrementalValuesProvider<(CompressionMemberInput Input, Supports Supports)> individualMembers = mergedMembers
-            .Where(static member => member.ReturnType != ReturnType.Unsupported && !member.IsCoveredByTar)
+        IncrementalValuesProvider<ProcessingResult<CompressAttributeInfo>> individualResults = mergedMembers
+            .Where(static member => member.ReturnType is not ReturnType.Unsupported && !member.IsCoveredByTar)
             .Combine(supports)
-            .WithTrackingName(IndividualMemberTrackingName);
+            .Select(static (pair, cancellationToken) => CompressStaticsTransforms.ValidateCompression(pair.Left, pair.Right));
 
-        context.RegisterSourceOutput(mergedMembers, static (productionContext, member) =>
+        context.RegisterSourceOutput(individualResults, static (productionContext, result) =>
         {
-            foreach (DiagnosticInfo diagnostic in member.Diagnostics)
+            if (result.Diagnostic is DiagnosticInfo diagnostic)
             {
-                productionContext.ReportDiagnostic(diagnostic.ToDiagnostic());
+                productionContext.ReportDiagnostic(diagnostic.ToDiagnostic(result.Input.Location.ToLocation()));
             }
         });
+
+        IncrementalValuesProvider<(CompressAttributeInfo Input, Supports Supports)> individualMembers = individualResults
+            .Select(static (result, cancellationToken) => result.Input)
+            .WithComparer(CompressAttributeInfo.EmissionComparer)
+            .Combine(supports)
+            .WithTrackingName(IndividualMemberTrackingName);
 
         context.RegisterSourceOutput(individualMembers, static (productionContext, pair) =>
         {
@@ -103,21 +151,27 @@ public sealed class CompressStaticsGenerator : IIncrementalGenerator
             productionContext.AddSource(CreateMemberHintName(pair.Input), SourceText.From(source, Encoding.UTF8));
         });
 
-        context.RegisterSourceOutput(resolvedTarMembers, static (productionContext, pair) =>
+        IncrementalValuesProvider<(TarMembers Left, Supports Right)> tarEmission = tarResults
+            .Select(static (result, cancellationToken) => result.Input)
+            .WithComparer(TarMembers.EmissionComparer)
+            .Combine(supports)
+            .WithTrackingName(TarTrackingName);
+
+        context.RegisterSourceOutput(tarEmission, static (productionContext, pair) =>
         {
             productionContext.CancellationToken.ThrowIfCancellationRequested();
 
-            string source = TypeEmitter.EmitTar(productionContext, pair.Group, pair.Supports);
+            string source = TypeEmitter.EmitTar(productionContext, pair.Left, pair.Right);
             if (string.IsNullOrWhiteSpace(source))
             {
                 return;
             }
 
-            productionContext.AddSource(CreateTarHintName(pair.Group.Type), SourceText.From(source, Encoding.UTF8));
+            productionContext.AddSource(CreateTarHintName(pair.Left.Type), SourceText.From(source, Encoding.UTF8));
         });
     }
 
-    private static string CreateMemberHintName(CompressionMemberInput member)
+    private static string CreateMemberHintName(CompressAttributeInfo member)
         => CreateHintName(StripGlobal(member.ContainingType.FullyQualifiedName) + "." + member.MemberName);
 
     private static string CreateTarHintName(EquatableTypeInfo type)
@@ -127,13 +181,5 @@ public sealed class CompressStaticsGenerator : IIncrementalGenerator
         => raw.StartsWith(Const.Global, StringComparison.Ordinal) ? raw[Const.Global.Length..] : raw;
 
     private static string CreateHintName(string raw)
-    {
-        var builder = new StringBuilder(raw.Length);
-        foreach (char c in raw)
-        {
-            _ = builder.Append(char.IsLetterOrDigit(c) || c == '.' || c == '-' ? c : '_');
-        }
-
-        return builder.ToString() + "." + Const.HintSuffix + ".g.cs";
-    }
+        => Helper.Sanitize(raw, preserveSeparators: true) + "." + Const.HintSuffix + ".g.cs";
 }

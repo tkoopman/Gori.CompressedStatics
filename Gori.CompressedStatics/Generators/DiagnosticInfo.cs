@@ -1,7 +1,5 @@
 using System.Collections.Immutable;
 
-using Gori.Roslyn;
-
 using Microsoft.CodeAnalysis;
 
 namespace Gori.CompressedStatics.Generators;
@@ -10,16 +8,24 @@ namespace Gori.CompressedStatics.Generators;
 /// An equatable description of a diagnostic to report, captured during the symbol-free transform
 /// stage and materialized into a Roslyn <see cref="Diagnostic"/> at source-output time.
 /// </summary>
-internal class DiagnosticInfo : IEquatable<DiagnosticInfo>
+public sealed class DiagnosticInfo : IEquatable<DiagnosticInfo>
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DiagnosticInfo"/> class with no message arguments.
+    /// </summary>
+    /// <param name="descriptor">The diagnostic descriptor.</param>
+    public DiagnosticInfo(DiagnosticDescriptor descriptor)
+        : this(descriptor, ImmutableArray<string>.Empty)
+    {
+    }
+
     /// <summary>
     /// Initializes a new instance of the <see cref="DiagnosticInfo"/> class with a single message argument.
     /// </summary>
     /// <param name="descriptor">The diagnostic descriptor.</param>
-    /// <param name="location">The source location.</param>
     /// <param name="messageArgument">The message format argument.</param>
-    public DiagnosticInfo(DiagnosticDescriptor descriptor, LocationInfo location, string messageArgument)
-        : this(descriptor, location, ImmutableArray.Create(messageArgument))
+    public DiagnosticInfo(DiagnosticDescriptor descriptor, string messageArgument)
+        : this(descriptor, ImmutableArray.Create(messageArgument))
     {
     }
 
@@ -27,17 +33,16 @@ internal class DiagnosticInfo : IEquatable<DiagnosticInfo>
     /// Initializes a new instance of the <see cref="DiagnosticInfo"/> class with message arguments.
     /// </summary>
     /// <param name="descriptor">The diagnostic descriptor.</param>
-    /// <param name="location">The source location.</param>
     /// <param name="messageArguments">The message format arguments.</param>
-    public DiagnosticInfo(DiagnosticDescriptor descriptor, LocationInfo location, params string[] messageArguments)
-        : this(descriptor, location, messageArguments is null ? [] : ImmutableArray.Create(messageArguments))
+    public DiagnosticInfo(DiagnosticDescriptor descriptor, params string[] messageArguments)
+        : this(descriptor, messageArguments is null ? [] : ImmutableArray.Create(messageArguments))
     {
     }
 
-    private DiagnosticInfo(DiagnosticDescriptor descriptor, LocationInfo location, ImmutableArray<string> messageArguments)
+    private DiagnosticInfo(DiagnosticDescriptor descriptor, ImmutableArray<string> messageArguments)
     {
-        Descriptor = descriptor;
-        Location = location;
+        Descriptor = descriptor ?? throw new ArgumentNullException(nameof(descriptor));
+        Severity = descriptor.DefaultSeverity;
         MessageArguments = messageArguments.IsDefault ? [] : messageArguments;
     }
 
@@ -47,10 +52,9 @@ internal class DiagnosticInfo : IEquatable<DiagnosticInfo>
     public DiagnosticDescriptor Descriptor { get; }
 
     /// <summary>
-    /// Gets the source location. Deliberately excluded from equality so line/column shifts from unrelated edits do not bust the incremental
-    /// cache; a cached diagnostic keeps its earlier position only while all other data is unchanged.
+    /// Gets the effective severity. Defaults to the descriptor's severity.
     /// </summary>
-    public LocationInfo Location { get; }
+    public DiagnosticSeverity Severity { get; init; }
 
     /// <summary>
     /// Gets the message format arguments (typically the member or type name).
@@ -58,20 +62,29 @@ internal class DiagnosticInfo : IEquatable<DiagnosticInfo>
     public ImmutableArray<string> MessageArguments { get; }
 
     /// <summary>
-    /// Materializes the Roslyn <see cref="Diagnostic"/>.
+    /// Materializes the Roslyn <see cref="Diagnostic"/> at the owning attribute's location.
     /// </summary>
+    /// <param name="location">The owning attribute's location.</param>
     /// <returns>The materialized <see cref="Diagnostic"/>.</returns>
-    public Diagnostic ToDiagnostic()
-        => Diagnostic.Create(Descriptor, Location.ToLocation(), MessageArguments.ToArray());
+    public Diagnostic ToDiagnostic(Location location)
+        => Diagnostic.Create(
+            Descriptor,
+            location,
+            Severity,
+            additionalLocations: null,
+            properties: null,
+            messageArgs: MessageArguments.ToArray());
 
     /// <summary>
     /// Determines whether the specified <see cref="DiagnosticInfo"/> is equal to the current <see cref="DiagnosticInfo"/>.
-    /// Ignores the <see cref="Location"/> property, as it is not relevant to equality for caching purposes.
+    /// The primary reporting location is supplied separately and does not participate in equality.
     /// </summary>
     /// <param name="other">The <see cref="DiagnosticInfo"/> to compare with the current <see cref="DiagnosticInfo"/>.</param>
     /// <returns><c>true</c> if the specified <see cref="DiagnosticInfo"/> is equal to the current <see cref="DiagnosticInfo"/>; otherwise, <c>false</c>.</returns>
-    public bool Equals(DiagnosticInfo other)
-        => StringComparer.Ordinal.Equals(Descriptor.Id, other.Descriptor.Id)
+    public bool Equals(DiagnosticInfo? other)
+        => other is not null
+        && Descriptor.Equals(other.Descriptor)
+        && Severity == other.Severity
         && MessageArguments.SequenceEqual(other.MessageArguments, StringComparer.Ordinal);
 
     /// <inheritdoc/>
@@ -82,7 +95,8 @@ internal class DiagnosticInfo : IEquatable<DiagnosticInfo>
     {
         unchecked
         {
-            int hashCode = StringComparer.Ordinal.GetHashCode(Descriptor.Id);
+            int hashCode = Descriptor.GetHashCode();
+            hashCode = (hashCode * 397) ^ Severity.GetHashCode();
             foreach (string argument in MessageArguments)
             {
                 hashCode = (hashCode * 397) ^ StringComparer.Ordinal.GetHashCode(argument);

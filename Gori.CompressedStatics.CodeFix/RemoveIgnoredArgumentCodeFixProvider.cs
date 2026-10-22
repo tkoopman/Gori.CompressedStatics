@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Composition;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
@@ -11,6 +12,7 @@ namespace Gori.CompressedStatics.CodeFix;
 /// <summary>
 /// A code fix provider that removes ignored arguments from attribute declarations when required by the diagnostics.
 /// </summary>
+[Shared]
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RemoveIgnoredArgumentCodeFixProvider))]
 public sealed class RemoveIgnoredArgumentCodeFixProvider : CodeFixProvider
 {

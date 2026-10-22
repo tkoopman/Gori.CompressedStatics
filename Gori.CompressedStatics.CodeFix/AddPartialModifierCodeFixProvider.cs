@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
+using System.Composition;
 
-using Gori.Roslyn;
+using Gori.Common.Roslyn;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
@@ -14,6 +15,7 @@ namespace Gori.CompressedStatics.CodeFix;
 /// <summary>
 /// A code fix provider that adds the 'partial' modifier to member and type declarations when required by the diagnostics.
 /// </summary>
+[Shared]
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AddPartialModifierCodeFixProvider))]
 public sealed class AddPartialModifierCodeFixProvider : CodeFixProvider
 {

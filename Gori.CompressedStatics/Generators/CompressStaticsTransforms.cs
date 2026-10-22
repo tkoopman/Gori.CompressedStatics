@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 
-using Gori.Roslyn;
+using Gori.Common.Roslyn;
 
 using Microsoft.CodeAnalysis;
 
@@ -16,38 +16,49 @@ internal static class CompressStaticsTransforms
     /// </summary>
     /// <param name="context">The attribute context.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>A <see cref="CompressionMemberInput"/> representing the member to be generated.</returns>
-    public static CompressionMemberInput CreateStringMember(GeneratorAttributeSyntaxContext context, CancellationToken cancellationToken)
+    /// <returns>A <see cref="CompressAttributeInfo"/> representing the member to be generated.</returns>
+    public static CompressAttributeInfo CreateStringMember(GeneratorAttributeSyntaxContext context, CancellationToken cancellationToken)
     {
-        AttributeData? attribute = context.Attributes.Length > 0 ? context.Attributes[0] : null;
-        string? value = attribute is null
-            ? null
-            : attribute.GetNamedArgumentAsString(nameof(CompressStringAttribute.Value)) ?? attribute.GetConstructorArgumentAsString();
+        if (context.Attributes.Length == 0)
+        {
+            return CompressAttributeInfo.Null;
+        }
+
+        AttributeData attribute = context.Attributes[0];
+
+        string? value = attribute.GetNamedArgumentAsString(nameof(CompressStringAttribute.Value)) ?? attribute.GetConstructorArgumentAsString();
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        // The raw literal is retained via SourceValue; its bytes (a UTF-16 encode for a string return
-        // type, or a base64 decode for a byte[] return type) are produced on demand at emit time via
-        // CompressionMemberInput.GetUncompressedData, which also reports an invalid base64 diagnostic.
-        return CreateMember(context, attribute, CompressionSource.String, value, cancellationToken: cancellationToken);
+        return CreateMember(context, attribute, CompressAttributeType.CompressString, value, cancellationToken: cancellationToken);
     }
 
     /// <summary>Transforms a <c>CompressFile</c> attribute target into a member model; bytes are resolved later.</summary>
     /// <param name="context">The attribute context.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>A <see cref="CompressionMemberInput"/> representing the member to be generated.</returns>
-    public static CompressionMemberInput CreateFileMember(GeneratorAttributeSyntaxContext context, CancellationToken cancellationToken)
+    /// <returns>A <see cref="CompressAttributeInfo"/> representing the member to be generated.</returns>
+    public static CompressAttributeInfo CreateFileMember(GeneratorAttributeSyntaxContext context, CancellationToken cancellationToken)
     {
-        AttributeData? attribute = context.Attributes.Length > 0 ? context.Attributes[0] : null;
-        string? file = attribute is null
-            ? null
-            : attribute.GetNamedArgumentAsString(nameof(CompressFileAttribute.File)) ?? attribute.GetConstructorArgumentAsString();
+        if (context.Attributes.Length == 0)
+        {
+            return CompressAttributeInfo.Null;
+        }
 
-        bool relativeToProject = attribute is not null && attribute.GetNamedArgumentAsBool(nameof(CompressFileAttribute.RelativeToProject), false);
+        AttributeData attribute = context.Attributes[0];
 
-        // SourceValue stays null until the matching additional text is resolved; the normalized path
-        // lives in the dedicated Path field. Bytes are produced on demand at emit time.
-        return CreateMember(context, attribute, CompressionSource.File, sourceValue: null, path: file, relativeToProject: relativeToProject, cancellationToken: cancellationToken);
+        string? file = attribute.GetNamedArgumentAsString(nameof(CompressFileAttribute.File)) ?? attribute.GetConstructorArgumentAsString();
+        bool relativeToProject = attribute.GetNamedArgumentAsBool(nameof(CompressFileAttribute.RelativeToProject), false);
+
+        // SourceValue stays null until the matching file text is resolved; the path
+        // lives in the dedicated FilePath field. Bytes are produced on demand at emit time.
+        return CreateMember(
+            context,
+            attribute,
+            CompressAttributeType.CompressFile,
+            sourceValue: null,
+            path: file,
+            relativeToProject: relativeToProject,
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -58,9 +69,15 @@ internal static class CompressStaticsTransforms
     /// <returns>A <see cref="TarMembers"/> representing the member to be generated.</returns>
     public static TarMembers CreateTarMember(GeneratorAttributeSyntaxContext context, CancellationToken cancellationToken)
     {
-        AttributeData? attribute = context.Attributes.Length > 0 ? context.Attributes[0] : null;
-        CompressionAlgorithm algorithm = attribute is null ? CompressionAlgorithm.Auto : attribute.GetNamedArgumentAsEnum(nameof(TarCompressAttribute.Algorithm), CompressionAlgorithm.Auto);
-        var location = LocationInfo.From(context.TargetSymbol);
+        if (context.Attributes.Length == 0)
+        {
+            return TarMembers.Null;
+        }
+
+        AttributeData attribute = context.Attributes[0];
+
+        CompressionAlgorithm algorithm = attribute.GetNamedArgumentAsEnum(nameof(TarCompressAttribute.Algorithm), CompressionAlgorithm.Auto);
+        var location = LocationInfo.From(attribute.ApplicationSyntaxReference?.GetSyntax(cancellationToken).GetLocation());
 
         return context.TargetSymbol is INamedTypeSymbol namedType && namedType.TypeKind is TypeKind.Class or TypeKind.Struct
             ? new TarMembers(
@@ -72,23 +89,40 @@ internal static class CompressStaticsTransforms
     }
 
     /// <summary>
-    /// Resolves file member bytes from the collected additional texts. Only matching-path content
-    /// affects the result, so unchanged members stay structurally equal and skip re-compression.
+    /// Resolves file member text from additional texts, falling back to compiled C# source files.
+    /// Only matching-path content affects the result, so unchanged members skip re-compression.
     /// </summary>
     /// <param name="member">The member to resolve file data for.</param>
     /// <param name="additionalTexts">The additional texts to search for matching file content.</param>
     /// <param name="supports">The supported features for the current compilation.</param>
+    /// <param name="compilation">The compilation to search for C# source files.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>The updated <see cref="CompressionMemberInput"/> with resolved file data.</returns>
-    public static CompressionMemberInput ResolveFileData(
-        CompressionMemberInput member,
-        ImmutableArray<(string Path, string? Text)> additionalTexts,
+    /// <returns>The updated <see cref="CompressAttributeInfo"/> with resolved file data.</returns>
+    public static CompressAttributeInfo ResolveFileData(
+        CompressAttributeInfo member,
+        ImmutableArray<AdditionalText> additionalTexts,
         Supports supports,
+        Compilation compilation,
         CancellationToken cancellationToken = default)
     {
-        string? memberPath = member.GetAbsolutePath(supports.ProjectPath);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!member.IsValid || member.AttributeType != CompressAttributeType.CompressFile)
+        {
+            return member;
+        }
 
-        if (member.Source != CompressionSource.File || memberPath is null || member.ReturnType == ReturnType.Unsupported)
+        string? memberPath;
+        try
+        {
+            memberPath = member.GetAbsolutePath(supports.ProjectPath);
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            // The file analyzer reports invalid paths; generation still supplies an empty implementation.
+            return member.Invalidate();
+        }
+
+        if (memberPath is null)
         {
             return member;
         }
@@ -96,27 +130,24 @@ internal static class CompressStaticsTransforms
         bool found = false;
         string? text = null;
 
-        foreach ((string path, string? content) in additionalTexts)
+        foreach (AdditionalText additionalText in additionalTexts)
         {
-            if (StringComparer.OrdinalIgnoreCase.Equals(path, memberPath))
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (StringComparer.Ordinal.Equals(Path.GetFullPath(additionalText.Path), memberPath))
             {
                 found = true;
-                text = content;
+                text = additionalText.GetText(cancellationToken)?.ToString();
                 break;
             }
-
-            cancellationToken.ThrowIfCancellationRequested();
         }
 
-        if (!found || string.IsNullOrEmpty(text))
+        if (!found)
         {
-            return member;
+            text = SourceFileHelper.FindSyntaxTree(compilation, memberPath, cancellationToken)?.GetText(cancellationToken).ToString();
         }
 
-        // Store the raw additional-file text; its bytes (UTF-16 encode for a string return type, or a
-        // base64 decode for a byte[] return type) are produced on demand at emit time via
-        // CompressionMemberInput.GetUncompressedData, which also reports an invalid base64 diagnostic.
-        return member.WithSourceValue(text);
+        return text is null ? member : member.WithSourceValue(text);
     }
 
     /// <summary>
@@ -124,21 +155,21 @@ internal static class CompressStaticsTransforms
     /// Only matching-type members affect the result, so unchanged members stay structurally equal and skip re-compression.
     /// </summary>
     /// <param name="member">The TarMembers instance to resolve.</param>
-    /// <param name="tarMembers">The collection of CompressionMemberInput instances to consider.</param>
+    /// <param name="tarMembers">The collection of <see cref="CompressAttributeInfo"/> instances to include.</param>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     /// <returns>A new TarMembers instance with the resolved members.</returns>
     public static TarMembers ResolveTarMembers(
         TarMembers member,
-        ImmutableArray<CompressionMemberInput> tarMembers,
+        ImmutableArray<CompressAttributeInfo> tarMembers,
         CancellationToken cancellationToken = default)
     {
-        if (tarMembers.Length == 0)
+        if (!member.IsValid || tarMembers.Length == 0)
         {
             return member;
         }
 
-        var filteredMembers = new List<CompressionMemberInput>();
-        foreach (CompressionMemberInput tarMember in tarMembers)
+        var filteredMembers = new List<CompressAttributeInfo>();
+        foreach (CompressAttributeInfo tarMember in tarMembers)
         {
             if (tarMember.ContainingType.Equals(member.Type))
             {
@@ -155,28 +186,47 @@ internal static class CompressStaticsTransforms
             [.. filteredMembers]);
     }
 
-    private static CompressionMemberInput CreateMember(
+    /// <summary>Validates the compression support required by an individual member.</summary>
+    /// <param name="member">The transformed member.</param>
+    /// <param name="supports">Available compression support.</param>
+    /// <returns>The member and any compression-support diagnostic.</returns>
+    public static ProcessingResult<CompressAttributeInfo> ValidateCompression(CompressAttributeInfo member, Supports supports)
+        => member.IsValid && supports.DisableBrotli && member.RequestedAlgorithm is CompressionAlgorithm.Brotli
+            ? new(member.Invalidate(), CreateBrotliDiagnostic(supports))
+            : new(member);
+
+    /// <summary>Validates the compression support required by a TAR group.</summary>
+    /// <param name="group">The resolved group.</param>
+    /// <param name="supports">Available compression support.</param>
+    /// <returns>The group and any compression-support diagnostic.</returns>
+    public static ProcessingResult<TarMembers> ValidateCompression(TarMembers group, Supports supports)
+        => group.IsValid && group.Members.Length != 0 && supports.DisableBrotli && group.Algorithm is CompressionAlgorithm.Brotli
+            ? new(group.Invalidate(), CreateBrotliDiagnostic(supports))
+            : new(group);
+
+    private static DiagnosticInfo CreateBrotliDiagnostic(Supports supports)
+    {
+        string missing = supports.BrotliCompileTime ? "Missing runtime assembly."
+            : supports.BrotliRuntime is not BrotliSupport.None ? "Missing compile time assembly."
+            : "Missing compile time and runtime assemblies.";
+        return new DiagnosticInfo(DiagnosticDescriptors.BrotliNotAvailable, missing);
+    }
+
+    private static CompressAttributeInfo CreateMember(
         GeneratorAttributeSyntaxContext context,
-        AttributeData? attribute,
-        CompressionSource source,
+        AttributeData attribute,
+        CompressAttributeType attributeType,
         string? sourceValue,
         string? path = null,
         bool relativeToProject = false,
-        DiagnosticInfo? diagnostic = null,
         CancellationToken cancellationToken = default)
     {
         ISymbol symbol = context.TargetSymbol;
         ReturnType returnType = SymbolExtraction.GetReturnType(symbol);
-        var location = LocationInfo.From(symbol);
+        var location = LocationInfo.From(attribute.ApplicationSyntaxReference?.GetSyntax(cancellationToken).GetLocation());
 
-        var diagnosticList = new List<DiagnosticInfo>();
-        if (diagnostic is not null)
-        {
-            diagnosticList.Add(diagnostic);
-        }
-
-        CompressionAlgorithm algorithm = attribute is null ? CompressionAlgorithm.Auto : attribute.GetNamedArgumentAsEnum(nameof(TarCompressAttribute.Algorithm), CompressionAlgorithm.Auto);
-        CompressionCacheMode cacheMode = attribute is null ? CompressionCacheMode.OnInit : attribute.GetNamedArgumentAsEnum(nameof(CompressStringAttribute.CacheMode), CompressionCacheMode.OnInit);
+        CompressionAlgorithm algorithm = attribute.GetNamedArgumentAsEnum(nameof(TarCompressAttribute.Algorithm), CompressionAlgorithm.Auto);
+        CompressionCacheMode cacheMode = attribute.GetNamedArgumentAsEnum(nameof(CompressStringAttribute.CacheMode), CompressionCacheMode.OnInit);
         bool isTarCovered = false;
 
         if (symbol is IPropertySymbol property && AttributeHelper.IsTarCoveredMember(property, cacheMode, out CompressionAlgorithm tarAlgorithm, cancellationToken))
@@ -188,7 +238,31 @@ internal static class CompressStaticsTransforms
             algorithm = tarAlgorithm;
         }
 
-        return new CompressionMemberInput()
+        string? transformerSelector = attribute.GetNamedArgumentAsString(nameof(CompressFileAttribute.Transformer));
+        string? transformerType = null;
+        string? transformerMember = null;
+        ImmutableArray<TransformerArgument> transformerArguments = default;
+
+        bool validAttribute = returnType is not ReturnType.Unsupported
+            && ValueTransformerHelper.IsValidTransformerValue(transformerSelector, out transformerType, out transformerMember);
+
+        if (transformerType is not null
+            && transformerMember is null
+            && attribute.TryGetNamedArgument(nameof(CompressFileAttribute.TransformerArguments), out TypedConstant argument))
+        {
+            if (argument.Kind != TypedConstantKind.Array || argument.IsNull)
+            {
+                transformerType = null;
+                validAttribute = false;
+                transformerArguments = [];
+            }
+            else
+            {
+                transformerArguments = [.. argument.Values.Select(TransformerArgument.FromConstant)];
+            }
+        }
+
+        var member = new CompressAttributeInfo()
         {
             ContainingType = symbol.ContainingType.CreateEquatableTypeInfo(),
             MemberName = symbol.Name,
@@ -196,15 +270,19 @@ internal static class CompressStaticsTransforms
             Accessibility = symbol.DeclaredAccessibility.ToKeywords(),
             IsPartial = symbol.IsPartial(cancellationToken),
             ReturnType = returnType,
-            Source = source,
+            AttributeType = attributeType,
             RequestedAlgorithm = algorithm,
             CacheMode = cacheMode,
             IsCoveredByTar = isTarCovered,
             SourceValue = sourceValue,
             FilePath = path,
             RelativeToProject = relativeToProject,
+            Transformer = transformerType,
+            TransformerMember = transformerMember,
+            TransformerArguments = transformerArguments,
             Location = location,
-            Diagnostics = [.. diagnosticList],
         };
+
+        return validAttribute ? member : member.Invalidate();
     }
 }

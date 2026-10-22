@@ -1,5 +1,7 @@
 using System.Collections;
 
+using Gori.Common.Roslyn.Test;
+
 namespace Gori.CompressedStatics.Testing.TestData;
 
 /// <summary>
@@ -22,6 +24,7 @@ internal sealed class PartialAnalyzerTestData : IEnumerable<TheoryDataRow<MockSo
                 {
                 }
                 """,
+                Expectations = [DiagnosticExpectation.NoOthers],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -42,6 +45,7 @@ internal sealed class PartialAnalyzerTestData : IEnumerable<TheoryDataRow<MockSo
                     public static string Value { get; }
                 }
                 """,
+                Expectations = [DiagnosticExpectation.NoOthers],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -61,20 +65,20 @@ internal sealed class PartialAnalyzerTestData : IEnumerable<TheoryDataRow<MockSo
                     public static string GetText();
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.MemberMustBePartial.Id,
-                DiagnosticMessageExpected =
+                Expectations =
                 [
-                    "'GetText'",
-                    $"[{Const.CompressStringAttributeShortName}]",
-                ],
-                CodeFixShouldOffer = true,
-                CodeFixExpected =
-                [
-                    "public static partial string GetText();",
-                ],
-                CodeFixNotExpected =
-                [
-                    "public static string GetText();",
+                    new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBePartial)
+                    {
+                        IsExpected = true,
+                        Message = "'GetText'",
+                        CodeFixExpectations =
+                        [
+                            CodeFixExpectation.NotEmpty,
+                            new CodeFixExpectation { IsExpected = true, Code = "public static partial string GetText();" },
+                            new CodeFixExpectation { IsExpected = false, Code = "public static string GetText();" },
+                        ],
+                    },
+                    new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBePartial) { IsExpected = true, Message = $"[{Const.CompressStringAttributeShortName}]" },
                 ],
             })
         {
@@ -95,20 +99,20 @@ internal sealed class PartialAnalyzerTestData : IEnumerable<TheoryDataRow<MockSo
                     public static string Value { get; }
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.MemberMustBePartial.Id,
-                DiagnosticMessageExpected =
+                Expectations =
                 [
-                    "'Value'",
-                    $"[{Const.CompressStringAttributeShortName}]",
-                ],
-                CodeFixShouldOffer = true,
-                CodeFixExpected =
-                [
-                    "public static partial string Value",
-                ],
-                CodeFixNotExpected =
-                [
-                    "public static string Value",
+                    new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBePartial)
+                    {
+                        IsExpected = true,
+                        Message = "'Value'",
+                        CodeFixExpectations =
+                        [
+                            CodeFixExpectation.NotEmpty,
+                            new CodeFixExpectation { IsExpected = true, Code = "public static partial string Value" },
+                            new CodeFixExpectation { IsExpected = false, Code = "public static string Value" },
+                        ],
+                    },
+                    new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBePartial) { IsExpected = true, Message = $"[{Const.CompressStringAttributeShortName}]" },
                 ],
             })
         {
@@ -129,20 +133,20 @@ internal sealed class PartialAnalyzerTestData : IEnumerable<TheoryDataRow<MockSo
                     public static string Data { get; }
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.MemberMustBePartial.Id,
-                DiagnosticMessageExpected =
+                Expectations =
                 [
-                    "'Data'",
-                    $"[{Const.CompressFileAttributeShortName}]",
-                ],
-                CodeFixShouldOffer = true,
-                CodeFixExpected =
-                [
-                    "public static partial string Data",
-                ],
-                CodeFixNotExpected =
-                [
-                    "public static string Data",
+                    new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBePartial)
+                    {
+                        IsExpected = true,
+                        Message = "'Data'",
+                        CodeFixExpectations =
+                        [
+                            CodeFixExpectation.NotEmpty,
+                            new CodeFixExpectation { IsExpected = true, Code = "public static partial string Data" },
+                            new CodeFixExpectation { IsExpected = false, Code = "public static string Data" },
+                        ],
+                    },
+                    new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBePartial) { IsExpected = true, Message = $"[{Const.CompressFileAttributeShortName}]" },
                 ],
             })
         {
@@ -162,20 +166,20 @@ internal sealed class PartialAnalyzerTestData : IEnumerable<TheoryDataRow<MockSo
                 {
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.TypeMustBePartial.Id,
-                DiagnosticMessageExpected =
+                Expectations =
                 [
-                    "'Sample'",
-                    $"[{Const.TarCompressAttributeShortName}]",
-                ],
-                CodeFixShouldOffer = true,
-                CodeFixExpected =
-                [
-                    "public partial class Sample",
-                ],
-                CodeFixNotExpected =
-                [
-                    "public class Sample",
+                    new DiagnosticExpectation(DiagnosticDescriptors.TypeMustBePartial)
+                    {
+                        IsExpected = true,
+                        Message = "'Sample'",
+                        CodeFixExpectations =
+                        [
+                            CodeFixExpectation.NotEmpty,
+                            new CodeFixExpectation { IsExpected = true, Code = "public partial class Sample" },
+                            new CodeFixExpectation { IsExpected = false, Code = "public class Sample" },
+                        ],
+                    },
+                    new DiagnosticExpectation(DiagnosticDescriptors.TypeMustBePartial) { IsExpected = true, Message = $"[{Const.TarCompressAttributeShortName}]" },
                 ],
             })
         {
@@ -201,20 +205,20 @@ internal sealed class PartialAnalyzerTestData : IEnumerable<TheoryDataRow<MockSo
                     public static string Value { get; }
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.MemberMustBePartialWhenTarHasStaticConstructor.Id,
-                DiagnosticMessageExpected =
+                Expectations =
                 [
-                    "Member 'Value'",
-                    "'Sample' declares",
-                ],
-                CodeFixShouldOffer = true,
-                CodeFixExpected =
-                [
-                    "public static partial string Value",
-                ],
-                CodeFixNotExpected =
-                [
-                    "public static string Value",
+                    new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBePartialWhenTarHasStaticConstructor)
+                    {
+                        IsExpected = true,
+                        Message = "Member 'Value'",
+                        CodeFixExpectations =
+                        [
+                            CodeFixExpectation.NotEmpty,
+                            new CodeFixExpectation { IsExpected = true, Code = "public static partial string Value" },
+                            new CodeFixExpectation { IsExpected = false, Code = "public static string Value" },
+                        ],
+                    },
+                    new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBePartialWhenTarHasStaticConstructor) { IsExpected = true, Message = "'Sample' declares" },
                 ],
             })
         {
@@ -241,6 +245,7 @@ internal sealed class PartialAnalyzerTestData : IEnumerable<TheoryDataRow<MockSo
                     public static string Value { get; }
                 }
                 """,
+                Expectations = [DiagnosticExpectation.NoOthers],
             })
         {
             Traits = { { "Category", [Category] } },

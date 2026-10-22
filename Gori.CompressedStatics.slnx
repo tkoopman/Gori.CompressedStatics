@@ -3,4 +3,17 @@
   <Project Path="Gori.CompressedStatics.Package/Gori.CompressedStatics.Package.csproj" Id="b6a1cb83-5535-4139-913c-01d80566d601" />
   <Project Path="Gori.CompressedStatics.Testing/Gori.CompressedStatics.Testing.csproj" />
   <Project Path="Gori.CompressedStatics/Gori.CompressedStatics.csproj" />
+  <Properties Name="AutomaticVersions" Scope="PostLoad">
+    <Property Name="AdvancedSettingsExpanded" Value="True" />
+    <Property Name="AssemblyFileVersionSettings" Value="IncrementOnDemandWithResetOnIncrease.IncrementOnDemandWithResetOnIncrease.IncrementOnDemand.DateStamp" />
+    <Property Name="AssemblyInfoVersionType" Value="SettingsVersion" />
+    <Property Name="AssemblyVersionSettings" Value="IncrementOnDemandWithResetOnIncrease.IncrementOnDemandWithResetOnIncrease.IncrementOnDemandWithResetOnIncrease.None" />
+    <Property Name="InheritWinAppVersionFrom" Value="None" />
+    <Property Name="PrimaryVersionType" Value="AssemblyInfoVersionAttribute" />
+    <Property Name="ShouldCreateLogs" Value="True" />
+    <Property Name="UpdateAssemblyFileVersion" Value="True" />
+    <Property Name="UpdateAssemblyInfoVersion" Value="False" />
+    <Property Name="UpdateAssemblyVersion" Value="True" />
+    <Property Name="UpdatePackageVersion" Value="False" />
+  </Properties>
 </Solution>

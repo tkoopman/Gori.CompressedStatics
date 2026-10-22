@@ -1,5 +1,7 @@
 using System.Collections;
 
+using Gori.Common.Roslyn.Test;
+
 namespace Gori.CompressedStatics.Testing.TestData;
 
 internal class AdditionalFileTestData : IEnumerable<TheoryDataRow<MockSourceData>>
@@ -24,10 +26,7 @@ internal class AdditionalFileTestData : IEnumerable<TheoryDataRow<MockSourceData
                 """,
                 SourcePath = "src\\Sample.cs",
                 AdditionalFiles = ["TestAssets\\AdditionalFiles\\content\\project-root.txt"],
-                DiagnosticId = null,
-                DiagnosticIdIsExpected = false,
-                DiagnosticMessageExpected = null,
-                DiagnosticMessageNotExpected = null,
+                Expectations = [DiagnosticExpectation.NoOthers],
             }
         )
         {
@@ -51,9 +50,7 @@ internal class AdditionalFileTestData : IEnumerable<TheoryDataRow<MockSourceData
                 """,
                 SourcePath = "src\\Sample.cs",
                 AdditionalFiles = ["src\\file.txt"],
-                DiagnosticId = null,
-                DiagnosticMessageExpected = null,
-                DiagnosticMessageNotExpected = null,
+                Expectations = [DiagnosticExpectation.NoOthers],
             }
         )
         {
@@ -77,17 +74,19 @@ internal class AdditionalFileTestData : IEnumerable<TheoryDataRow<MockSourceData
                 """,
                 SourcePath = "src\\Sample.cs",
                 AdditionalFiles = ["content\\file.txt"],
-                DiagnosticId = DiagnosticDescriptors.SourceFileMustBeAdditionalFile.Id,
-                DiagnosticMessageExpected = null,
-                DiagnosticMessageNotExpected = null,
-                CodeFixShouldOffer = true,
-                CodeFixTitle = "Set RelativeToProject = true",
-                CodeFixExpected = [
-                    """[CompressFile("content\\file.txt", RelativeToProject = true)]"""
-                ],
-                CodeFixNotExpected = [
-                    """[CompressFile("content\\file.txt")]""",
-                    """[CompressFile("content\\file.txt", RelativeToProject = false)]"""
+                Expectations =
+                [
+                    new DiagnosticExpectation(DiagnosticDescriptors.SourceFileMustBeAdditionalFile)
+                    {
+                        IsExpected = true,
+                        CodeFixExpectations =
+                        [
+                            CodeFixExpectation.NotEmpty,
+                            new CodeFixExpectation { IsExpected = true, Title = "Set RelativeToProject = true", EquivalenceKey = "CompressFileAttribute.ToggleRelativeToProject", Code = """[CompressFile("content\\file.txt", RelativeToProject = true)]""" },
+                            new CodeFixExpectation { IsExpected = false, EquivalenceKey = "CompressFileAttribute.ToggleRelativeToProject", Code = """[CompressFile("content\\file.txt")]""" },
+                            new CodeFixExpectation { IsExpected = false, EquivalenceKey = "CompressFileAttribute.ToggleRelativeToProject", Code = """[CompressFile("content\\file.txt", RelativeToProject = false)]""" },
+                        ],
+                    },
                 ],
             }
         )
@@ -112,17 +111,19 @@ internal class AdditionalFileTestData : IEnumerable<TheoryDataRow<MockSourceData
                 """,
                 SourcePath = "src\\Sample.cs",
                 AdditionalFiles = ["content\\file.txt"],
-                DiagnosticId = DiagnosticDescriptors.SourceFileMustBeAdditionalFile.Id,
-                DiagnosticMessageExpected = null,
-                DiagnosticMessageNotExpected = null,
-                CodeFixShouldOffer = true,
-                CodeFixTitle = "Set RelativeToProject = true",
-                CodeFixExpected = [
-                    """[CompressFile("content\\file.txt", RelativeToProject = true)]"""
-                ],
-                CodeFixNotExpected = [
-                    """[CompressFile("content\\file.txt")]""",
-                    """[CompressFile("content\\file.txt", RelativeToProject = false)]"""
+                Expectations =
+                [
+                    new DiagnosticExpectation(DiagnosticDescriptors.SourceFileMustBeAdditionalFile)
+                    {
+                        IsExpected = true,
+                        CodeFixExpectations =
+                        [
+                            CodeFixExpectation.NotEmpty,
+                            new CodeFixExpectation { IsExpected = true, Title = "Set RelativeToProject = true", EquivalenceKey = "CompressFileAttribute.ToggleRelativeToProject", Code = """[CompressFile("content\\file.txt", RelativeToProject = true)]""" },
+                            new CodeFixExpectation { IsExpected = false, EquivalenceKey = "CompressFileAttribute.ToggleRelativeToProject", Code = """[CompressFile("content\\file.txt")]""" },
+                            new CodeFixExpectation { IsExpected = false, EquivalenceKey = "CompressFileAttribute.ToggleRelativeToProject", Code = """[CompressFile("content\\file.txt", RelativeToProject = false)]""" },
+                        ],
+                    },
                 ],
             }
         )
@@ -147,19 +148,21 @@ internal class AdditionalFileTestData : IEnumerable<TheoryDataRow<MockSourceData
                 """,
                 SourcePath = "src\\Sample.cs",
                 AdditionalFiles = ["content\\file.txt"],
-                DiagnosticId = DiagnosticDescriptors.SourceFileMustBeAdditionalFile.Id,
-                DiagnosticMessageExpected = null,
-                DiagnosticMessageNotExpected = null,
-                CodeFixShouldOffer = true,
-                CodeFixTitle = "Set RelativeToProject = true",
-                CodeFixExpected = [
-                    """[CompressFile(file: "content\\file.txt", RelativeToProject = true)]"""
-                ],
-                CodeFixNotExpected = [
-                    """[CompressFile("content\\file.txt")]""",
-                    """[CompressFile("content\\file.txt", RelativeToProject = false)]""",
-                    """[CompressFile(file: "content\\file.txt")]""",
-                    """[CompressFile(file: "content\\file.txt", RelativeToProject = false)]""",
+                Expectations =
+                [
+                    new DiagnosticExpectation(DiagnosticDescriptors.SourceFileMustBeAdditionalFile)
+                    {
+                        IsExpected = true,
+                        CodeFixExpectations =
+                        [
+                            CodeFixExpectation.NotEmpty,
+                            new CodeFixExpectation { IsExpected = true, Title = "Set RelativeToProject = true", EquivalenceKey = "CompressFileAttribute.ToggleRelativeToProject", Code = """[CompressFile(file: "content\\file.txt", RelativeToProject = true)]""" },
+                            new CodeFixExpectation { IsExpected = false, EquivalenceKey = "CompressFileAttribute.ToggleRelativeToProject", Code = """[CompressFile("content\\file.txt")]""" },
+                            new CodeFixExpectation { IsExpected = false, EquivalenceKey = "CompressFileAttribute.ToggleRelativeToProject", Code = """[CompressFile("content\\file.txt", RelativeToProject = false)]""" },
+                            new CodeFixExpectation { IsExpected = false, EquivalenceKey = "CompressFileAttribute.ToggleRelativeToProject", Code = """[CompressFile(file: "content\\file.txt")]""" },
+                            new CodeFixExpectation { IsExpected = false, EquivalenceKey = "CompressFileAttribute.ToggleRelativeToProject", Code = """[CompressFile(file: "content\\file.txt", RelativeToProject = false)]""" },
+                        ],
+                    },
                 ],
             }
         )
@@ -184,17 +187,19 @@ internal class AdditionalFileTestData : IEnumerable<TheoryDataRow<MockSourceData
                 """,
                 SourcePath = "src\\Sample.cs",
                 AdditionalFiles = ["content\\file.txt"],
-                DiagnosticId = DiagnosticDescriptors.SourceFileMustBeAdditionalFile.Id,
-                DiagnosticMessageExpected = null,
-                DiagnosticMessageNotExpected = null,
-                CodeFixShouldOffer = true,
-                CodeFixTitle = "Rewrite file path",
-                CodeFixExpected = [
-                    """[CompressFile("..\\content\\file.txt", RelativeToProject = false)]"""
-                ],
-                CodeFixNotExpected = [
-                    """[CompressFile("content\\file.txt", RelativeToProject = false)]""",
-                    """[CompressFile(@"content\file.txt", RelativeToProject = false)]""",
+                Expectations =
+                [
+                    new DiagnosticExpectation(DiagnosticDescriptors.SourceFileMustBeAdditionalFile)
+                    {
+                        IsExpected = true,
+                        CodeFixExpectations =
+                        [
+                            CodeFixExpectation.NotEmpty,
+                            new CodeFixExpectation { IsExpected = true, Title = "Rewrite file path", EquivalenceKey = "CompressFileAttribute.RewriteFilePath", Code = """[CompressFile("..\\content\\file.txt", RelativeToProject = false)]""" },
+                            new CodeFixExpectation { IsExpected = false, EquivalenceKey = "CompressFileAttribute.RewriteFilePath", Code = """[CompressFile("content\\file.txt", RelativeToProject = false)]""" },
+                            new CodeFixExpectation { IsExpected = false, EquivalenceKey = "CompressFileAttribute.RewriteFilePath", Code = """[CompressFile(@"content\file.txt", RelativeToProject = false)]""" },
+                        ],
+                    },
                 ],
             }
         )
@@ -219,16 +224,18 @@ internal class AdditionalFileTestData : IEnumerable<TheoryDataRow<MockSourceData
                 """,
                 SourcePath = "src\\Sample.cs",
                 AdditionalFiles = ["content\\file.txt"],
-                DiagnosticId = DiagnosticDescriptors.SourceFileMustBeAdditionalFile.Id,
-                DiagnosticMessageExpected = null,
-                DiagnosticMessageNotExpected = null,
-                CodeFixShouldOffer = true,
-                CodeFixTitle = "Rewrite file path",
-                CodeFixExpected = [
-                    """[CompressFile(file: "..\\content\\file.txt")]"""
-                ],
-                CodeFixNotExpected = [
-                    """[CompressFile(file: @"content\file.txt")]""",
+                Expectations =
+                [
+                    new DiagnosticExpectation(DiagnosticDescriptors.SourceFileMustBeAdditionalFile)
+                    {
+                        IsExpected = true,
+                        CodeFixExpectations =
+                        [
+                            CodeFixExpectation.NotEmpty,
+                            new CodeFixExpectation { IsExpected = true, Title = "Rewrite file path", EquivalenceKey = "CompressFileAttribute.RewriteFilePath", Code = """[CompressFile(file: "..\\content\\file.txt")]""" },
+                            new CodeFixExpectation { IsExpected = false, EquivalenceKey = "CompressFileAttribute.RewriteFilePath", Code = """[CompressFile(file: @"content\file.txt")]""" },
+                        ],
+                    },
                 ],
             }
         )
@@ -253,16 +260,18 @@ internal class AdditionalFileTestData : IEnumerable<TheoryDataRow<MockSourceData
                 """,
                 SourcePath = "src\\Sample.cs",
                 AdditionalFiles = ["content\\file.txt"],
-                DiagnosticId = DiagnosticDescriptors.SourceFileMustBeAdditionalFile.Id,
-                DiagnosticMessageExpected = null,
-                DiagnosticMessageNotExpected = null,
-                CodeFixShouldOffer = true,
-                CodeFixTitle = "Rewrite file path",
-                CodeFixExpected = [
-                    """[CompressFile("..\\content\\file.txt")]"""
-                ],
-                CodeFixNotExpected = [
-                    """[CompressFile("content\\file.txt")]""",
+                Expectations =
+                [
+                    new DiagnosticExpectation(DiagnosticDescriptors.SourceFileMustBeAdditionalFile)
+                    {
+                        IsExpected = true,
+                        CodeFixExpectations =
+                        [
+                            CodeFixExpectation.NotEmpty,
+                            new CodeFixExpectation { IsExpected = true, Title = "Rewrite file path", EquivalenceKey = "CompressFileAttribute.RewriteFilePath", Code = """[CompressFile("..\\content\\file.txt")]""" },
+                            new CodeFixExpectation { IsExpected = false, EquivalenceKey = "CompressFileAttribute.RewriteFilePath", Code = """[CompressFile("content\\file.txt")]""" },
+                        ],
+                    },
                 ],
             }
         )
@@ -287,16 +296,18 @@ internal class AdditionalFileTestData : IEnumerable<TheoryDataRow<MockSourceData
                 """,
                 SourcePath = "src\\Sample.cs",
                 AdditionalFiles = ["content\\file.txt"],
-                DiagnosticId = DiagnosticDescriptors.SourceFileMustBeAdditionalFile.Id,
-                DiagnosticMessageExpected = null,
-                DiagnosticMessageNotExpected = null,
-                CodeFixShouldOffer = true,
-                CodeFixTitle = "Remove RelativeToProject",
-                CodeFixExpected = [
-                    """[CompressFile("..\\content\\file.txt")]"""
-                ],
-                CodeFixNotExpected = [
-                    """[CompressFile("..\\content\\file.txt", RelativeToProject = true)]"""
+                Expectations =
+                [
+                    new DiagnosticExpectation(DiagnosticDescriptors.SourceFileMustBeAdditionalFile)
+                    {
+                        IsExpected = true,
+                        CodeFixExpectations =
+                        [
+                            CodeFixExpectation.NotEmpty,
+                            new CodeFixExpectation { IsExpected = true, Title = "Remove RelativeToProject", EquivalenceKey = "CompressFileAttribute.ToggleRelativeToProject", Code = """[CompressFile("..\\content\\file.txt")]""" },
+                            new CodeFixExpectation { IsExpected = false, EquivalenceKey = "CompressFileAttribute.ToggleRelativeToProject", Code = """[CompressFile("..\\content\\file.txt", RelativeToProject = true)]""" },
+                        ],
+                    },
                 ],
             }
         )
@@ -321,16 +332,18 @@ internal class AdditionalFileTestData : IEnumerable<TheoryDataRow<MockSourceData
                 """,
                 SourcePath = "src\\Sample.cs",
                 AdditionalFiles = ["content\\file.txt"],
-                DiagnosticId = DiagnosticDescriptors.SourceFileMustBeAdditionalFile.Id,
-                DiagnosticMessageExpected = null,
-                DiagnosticMessageNotExpected = null,
-                CodeFixShouldOffer = true,
-                CodeFixTitle = "Rewrite file path",
-                CodeFixExpected = [
-                    """[CompressFile("content\\file.txt", RelativeToProject = true)]"""
-                ],
-                CodeFixNotExpected = [
-                    """[CompressFile("..\\content\\file.txt", RelativeToProject = true)]"""
+                Expectations =
+                [
+                    new DiagnosticExpectation(DiagnosticDescriptors.SourceFileMustBeAdditionalFile)
+                    {
+                        IsExpected = true,
+                        CodeFixExpectations =
+                        [
+                            CodeFixExpectation.NotEmpty,
+                            new CodeFixExpectation { IsExpected = true, Title = "Rewrite file path", EquivalenceKey = "CompressFileAttribute.RewriteFilePath", Code = """[CompressFile("content\\file.txt", RelativeToProject = true)]""" },
+                            new CodeFixExpectation { IsExpected = false, EquivalenceKey = "CompressFileAttribute.RewriteFilePath", Code = """[CompressFile("..\\content\\file.txt", RelativeToProject = true)]""" },
+                        ],
+                    },
                 ],
             }
         )

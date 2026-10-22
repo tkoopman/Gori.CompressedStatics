@@ -3,7 +3,7 @@ namespace Gori.CompressedStatics;
 /// <summary>
 /// Identifies the type of compress attribute being analyzed.
 /// </summary>
-internal enum CompressAttributeType
+public enum CompressAttributeType
 {
     /// <summary>
     /// The attribute is not recognized as a compress attribute.

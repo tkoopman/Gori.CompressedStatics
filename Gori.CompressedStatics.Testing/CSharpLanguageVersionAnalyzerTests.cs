@@ -1,10 +1,10 @@
 using System.Collections.Immutable;
 
+using Gori.Common.Roslyn.Test;
 using Gori.CompressedStatics.Analyzers;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Gori.CompressedStatics.Testing;
 
@@ -46,21 +46,12 @@ public sealed class CSharpLanguageVersionAnalyzerTests
     {
         const string source = "public static class Sample { }";
 
-        SyntaxTree syntaxTree = CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(languageVersion));
+        var project = MockProject.Create(
+            typeof(CompressFileAttribute).Assembly,
+            source,
+            languageVersion: languageVersion,
+            cancellationToken: TestContext.Current.CancellationToken);
 
-        IEnumerable<PortableExecutableReference> references = ((string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))!
-            .Split(Path.PathSeparator)
-            .Select(path => MetadataReference.CreateFromFile(path));
-
-        var compilation = CSharpCompilation.Create(
-            assemblyName: "AnalyzerTests",
-            syntaxTrees: [syntaxTree],
-            references: references,
-            options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-
-        DiagnosticAnalyzer analyzer = new CSharpLanguageVersionAnalyzer();
-        CompilationWithAnalyzers compilationWithAnalyzers = compilation.WithAnalyzers([analyzer]);
-
-        return await compilationWithAnalyzers.GetAnalyzerDiagnosticsAsync();
+        return await project.GetDiagnosticsAsync<CSharpLanguageVersionAnalyzer>();
     }
 }

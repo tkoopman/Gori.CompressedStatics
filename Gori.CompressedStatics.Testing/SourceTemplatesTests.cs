@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 
+using Gori.Common.Roslyn.Test;
 using Gori.CompressedStatics.Generators;
 
 namespace Gori.CompressedStatics.Testing;
@@ -48,28 +49,30 @@ public partial class SourceTemplatesTests(ITestOutputHelper output)
 
     [Fact]
     public async Task AttributeMarkerGeneratorTest()
-    {
-        var project = new MockProject(cancellationToken: TestContext.Current.CancellationToken);
-        string results = await project.RunGeneratorDumpAll<AttributeMarkerGenerator>();
-        output.WriteLine(results);
-
-        Assert.Contains($"internal enum {nameof(CompressionAlgorithm)}", results);
-        Assert.Contains($"internal enum {nameof(CompressionCacheMode)}", results);
-        Assert.Contains($"internal sealed class {nameof(CompressStringAttribute)}", results);
-        Assert.Contains($"internal sealed class {nameof(CompressFileAttribute)}", results);
-        Assert.Contains($"internal sealed class {nameof(TarCompressAttribute)}", results);
-    }
+        => await MockProject.AssertGeneratorTest<AttributeMarkerGenerator>(new MockSourceData
+        {
+            SourceCode = string.Empty,
+            Expectations =
+                [
+                    new FileExpectation { IsExpected = true, Content = $"internal enum {nameof(CompressionAlgorithm)}" },
+                    new FileExpectation { IsExpected = true, Content = $"internal enum {nameof(CompressionCacheMode)}" },
+                    new FileExpectation { IsExpected = true, Content = $"internal sealed class {nameof(CompressStringAttribute)}" },
+                    new FileExpectation { IsExpected = true, Content = $"internal sealed class {nameof(CompressFileAttribute)}" },
+                    new FileExpectation { IsExpected = true, Content = $"internal sealed class {nameof(TarCompressAttribute)}" },
+                ],
+        }, output);
 
     [Fact]
     public async Task DecompressStaticsGeneratorTest()
-    {
-        var project = new MockProject(cancellationToken: TestContext.Current.CancellationToken);
-        string results = await project.RunGeneratorDumpAll<DecompressStaticsGenerator>();
-        output.WriteLine(results);
-
-        Assert.Contains($"internal enum {Const.AlgorithmEnumName}", results);
-        Assert.Contains($"internal static class {Const.DecompressStaticsClassName}", results);
-    }
+        => await MockProject.AssertGeneratorTest<DecompressStaticsGenerator>(new MockSourceData
+        {
+            SourceCode = string.Empty,
+            Expectations =
+                [
+                    new FileExpectation { IsExpected = true, Content = $"internal enum {Const.AlgorithmEnumName}" },
+                    new FileExpectation { IsExpected = true, Content = $"internal static class {Const.DecompressStaticsClassName}" },
+                ],
+        }, output);
 
     [GeneratedRegex(@$"internal enum {Const.AlgorithmEnumName}[\r\n\s]+\{{[\r\n\s]+{nameof(StorageKind.Brotli)},[\r\n\s]+{nameof(StorageKind.GZip)},[\r\n\s]+{nameof(StorageKind.Deflate)},[\r\n\s]+\}}", RegexOptions.Multiline)]
     private static partial Regex AlgorithmEnumRegex();

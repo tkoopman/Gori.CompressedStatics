@@ -1,5 +1,7 @@
 using System.Collections;
 
+using Gori.Common.Roslyn.Test;
+
 namespace Gori.CompressedStatics.Testing.TestData;
 
 /// <summary>
@@ -23,20 +25,20 @@ internal sealed class StaticAnalyzerTestData : IEnumerable<TheoryDataRow<MockSou
                     public partial string GetText();
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.MemberMustBeStatic.Id,
-                DiagnosticMessageExpected =
+                Expectations =
                 [
-                    "'GetText'",
-                    $"[{Const.CompressStringAttributeShortName}]",
-                ],
-                CodeFixShouldOffer = true,
-                CodeFixExpected =
-                [
-                    "public static partial string GetText",
-                ],
-                CodeFixNotExpected =
-                [
-                    "public partial string GetText",
+                    new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBeStatic)
+                    {
+                        IsExpected = true,
+                        Message = "'GetText'",
+                        CodeFixExpectations =
+                        [
+                            CodeFixExpectation.NotEmpty,
+                            new CodeFixExpectation { IsExpected = true, Code = "public static partial string GetText" },
+                            new CodeFixExpectation { IsExpected = false, Code = "public partial string GetText" },
+                        ],
+                    },
+                    new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBeStatic) { IsExpected = true, Message = $"[{Const.CompressStringAttributeShortName}]" },
                 ],
             })
         {
@@ -57,20 +59,20 @@ internal sealed class StaticAnalyzerTestData : IEnumerable<TheoryDataRow<MockSou
                     public partial string Value { get; }
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.MemberMustBeStatic.Id,
-                DiagnosticMessageExpected =
+                Expectations =
                 [
-                    "'Value'",
-                    $"[{Const.CompressStringAttributeShortName}]",
-                ],
-                CodeFixShouldOffer = true,
-                CodeFixExpected =
-                [
-                    "public static partial string Value",
-                ],
-                CodeFixNotExpected =
-                [
-                    "public partial string Value",
+                    new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBeStatic)
+                    {
+                        IsExpected = true,
+                        Message = "'Value'",
+                        CodeFixExpectations =
+                        [
+                            CodeFixExpectation.NotEmpty,
+                            new CodeFixExpectation { IsExpected = true, Code = "public static partial string Value" },
+                            new CodeFixExpectation { IsExpected = false, Code = "public partial string Value" },
+                        ],
+                    },
+                    new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBeStatic) { IsExpected = true, Message = $"[{Const.CompressStringAttributeShortName}]" },
                 ],
             })
         {
@@ -91,20 +93,20 @@ internal sealed class StaticAnalyzerTestData : IEnumerable<TheoryDataRow<MockSou
                     public partial string Data { get; }
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.MemberMustBeStatic.Id,
-                DiagnosticMessageExpected =
+                Expectations =
                 [
-                    "'Data'",
-                    $"[{Const.CompressFileAttributeShortName}]",
-                ],
-                CodeFixShouldOffer = true,
-                CodeFixExpected =
-                [
-                    "public static partial string Data",
-                ],
-                CodeFixNotExpected =
-                [
-                    "public partial string Data",
+                    new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBeStatic)
+                    {
+                        IsExpected = true,
+                        Message = "'Data'",
+                        CodeFixExpectations =
+                        [
+                            CodeFixExpectation.NotEmpty,
+                            new CodeFixExpectation { IsExpected = true, Code = "public static partial string Data" },
+                            new CodeFixExpectation { IsExpected = false, Code = "public partial string Data" },
+                        ],
+                    },
+                    new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBeStatic) { IsExpected = true, Message = $"[{Const.CompressFileAttributeShortName}]" },
                 ],
             })
         {
@@ -130,20 +132,20 @@ internal sealed class StaticAnalyzerTestData : IEnumerable<TheoryDataRow<MockSou
                     public partial string Value { get; }
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.MemberMustBeStatic.Id,
-                DiagnosticMessageExpected =
+                Expectations =
                 [
-                    "'Value'",
-                    $"[{Const.CompressStringAttributeShortName}]",
-                ],
-                CodeFixShouldOffer = true,
-                CodeFixExpected =
-                [
-                    "public static partial string Value",
-                ],
-                CodeFixNotExpected =
-                [
-                    "public partial string Value",
+                    new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBeStatic)
+                    {
+                        IsExpected = true,
+                        Message = "'Value'",
+                        CodeFixExpectations =
+                        [
+                            CodeFixExpectation.NotEmpty,
+                            new CodeFixExpectation { IsExpected = true, Code = "public static partial string Value" },
+                            new CodeFixExpectation { IsExpected = false, Code = "public partial string Value" },
+                        ],
+                    },
+                    new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBeStatic) { IsExpected = true, Message = $"[{Const.CompressStringAttributeShortName}]" },
                 ],
             })
         {

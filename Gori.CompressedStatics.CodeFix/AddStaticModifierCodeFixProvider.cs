@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
+using System.Composition;
 
-using Gori.Roslyn;
+using Gori.Common.Roslyn;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
@@ -14,6 +15,7 @@ namespace Gori.CompressedStatics.CodeFix;
 /// <summary>
 /// A code fix provider that adds the 'static' modifier to member declarations when required by the diagnostics.
 /// </summary>
+[Shared]
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AddStaticModifierCodeFixProvider))]
 public sealed class AddStaticModifierCodeFixProvider : CodeFixProvider
 {

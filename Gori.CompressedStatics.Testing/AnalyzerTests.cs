@@ -1,9 +1,9 @@
 using System.Collections.Immutable;
 
+using Gori.Common.Roslyn.Test;
 using Gori.CompressedStatics.Analyzers;
 using Gori.CompressedStatics.CodeFix;
 using Gori.CompressedStatics.Testing.TestData;
-using Gori.Roslyn.Testing;
 
 using Microsoft.CodeAnalysis;
 
@@ -41,10 +41,11 @@ public sealed class AnalyzerTests(ITestOutputHelper output)
     [Fact]
     public async Task ReportsDiagnostic_WhenRelativeToProjectIsUsedWithoutProjectDirectory()
     {
-        var project = new MockProject(
+        var project = MockProject.Create(
+            typeof(CompressFileAttribute).Assembly,
             """
             using Gori.CompressedStatics;
-            
+
             public static partial class Sample
             {
                 [CompressFile("TestAssets\\AdditionalFiles\\content\\project-root.txt", RelativeToProject = true)]

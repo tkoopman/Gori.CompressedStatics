@@ -1,5 +1,7 @@
 using System.Collections;
 
+using Gori.Common.Roslyn.Test;
+
 namespace Gori.CompressedStatics.Testing.TestData;
 
 /// <summary>
@@ -25,7 +27,7 @@ internal sealed class GeneralCompressAnalyzerTestData : IEnumerable<TheoryDataRo
                     public static partial string GetText();
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.OneAttributePerMember.Id,
+                Expectations = [new DiagnosticExpectation(DiagnosticDescriptors.OneAttributePerMember) { IsExpected = true }],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -45,7 +47,7 @@ internal sealed class GeneralCompressAnalyzerTestData : IEnumerable<TheoryDataRo
                     public static partial int GetValue();
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.MemberMustReturnStringOrByteArray.Id,
+                Expectations = [new DiagnosticExpectation(DiagnosticDescriptors.MemberMustReturnStringOrByteArray) { IsExpected = true }],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -65,7 +67,7 @@ internal sealed class GeneralCompressAnalyzerTestData : IEnumerable<TheoryDataRo
                     public static partial object GetValue();
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.MemberMustReturnStringOrByteArray.Id,
+                Expectations = [new DiagnosticExpectation(DiagnosticDescriptors.MemberMustReturnStringOrByteArray) { IsExpected = true }],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -85,7 +87,7 @@ internal sealed class GeneralCompressAnalyzerTestData : IEnumerable<TheoryDataRo
                     public static partial string? GetValue();
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.MemberMustReturnStringOrByteArray.Id,
+                Expectations = [new DiagnosticExpectation(DiagnosticDescriptors.MemberMustReturnStringOrByteArray) { IsExpected = true }],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -105,7 +107,7 @@ internal sealed class GeneralCompressAnalyzerTestData : IEnumerable<TheoryDataRo
                     public static partial string? GetValue();
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.MemberMustReturnStringOrByteArray.Id,
+                Expectations = [new DiagnosticExpectation(DiagnosticDescriptors.MemberMustReturnStringOrByteArray) { IsExpected = true }],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -125,7 +127,7 @@ internal sealed class GeneralCompressAnalyzerTestData : IEnumerable<TheoryDataRo
                     public static partial string GetData(int value);
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.MethodMustHaveNoParameters.Id,
+                Expectations = [new DiagnosticExpectation(DiagnosticDescriptors.MethodMustHaveNoParameters) { IsExpected = true }],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -145,7 +147,7 @@ internal sealed class GeneralCompressAnalyzerTestData : IEnumerable<TheoryDataRo
                     public static partial string GetText(int value);
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.MethodMustHaveNoParameters.Id,
+                Expectations = [new DiagnosticExpectation(DiagnosticDescriptors.MethodMustHaveNoParameters) { IsExpected = true }],
             })
         {
             Traits = { { "Category", [Category] } },

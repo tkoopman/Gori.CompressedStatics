@@ -2,7 +2,9 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 
-using Gori.Roslyn;
+using Gori.Common.Roslyn;
+
+using Microsoft.CodeAnalysis.CSharp;
 
 namespace Gori.CompressedStatics.Generators;
 
@@ -26,7 +28,7 @@ internal static class Helper
 
         foreach (TypeDeclaration declaration in type.Declarations)
         {
-            _ = builder.WriteLine($"partial {declaration.Keyword} {declaration.Name}")
+            _ = builder.WriteLine($"partial {declaration.Keyword} {EscapeTypeDeclarationName(declaration.Name)}")
                        .WriteLine("{");
         }
     }
@@ -80,16 +82,30 @@ internal static class Helper
     }
 
     /// <summary>
-    /// Sanitizes a string by replacing all non-alphanumeric characters with underscores.
+    /// Escapes keyword identifiers for use in generated C# source.
     /// </summary>
-    /// <param name="raw">The string to sanitize.</param>
-    /// <returns>The sanitized string.</returns>
-    public static string Sanitize(string raw)
+    /// <param name="name">The symbol name.</param>
+    /// <returns>The identifier with a verbatim prefix when needed.</returns>
+    public static string EscapeIdentifier(string name)
+        => SyntaxFacts.GetKeywordKind(name) != SyntaxKind.None || SyntaxFacts.GetContextualKeywordKind(name) != SyntaxKind.None
+            ? "@" + name
+            : name;
+
+    /// <summary>
+    /// Encodes names without collapsing distinct characters to the same output.
+    /// </summary>
+    /// <param name="raw">The name to encode.</param>
+    /// <param name="preserveSeparators">Whether to retain dots and hyphens in file hint names.</param>
+    /// <returns>The encoded name.</returns>
+    public static string Sanitize(string raw, bool preserveSeparators = false)
     {
         var builder = new StringBuilder(raw.Length);
         foreach (char c in raw)
         {
-            _ = builder.Append(char.IsLetterOrDigit(c) ? c : '_');
+            _ = c is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9')
+                || (preserveSeparators && c is '.' or '-')
+                ? builder.Append(c)
+                : builder.Append("_u").Append(((int)c).ToString("X4", CultureInfo.InvariantCulture));
         }
 
         return builder.ToString();
@@ -128,6 +144,15 @@ internal static class Helper
             bytes = [];
             return false;
         }
+    }
+
+    private static string EscapeTypeDeclarationName(string name)
+    {
+        int parameterStart = name.IndexOf('<');
+        return parameterStart < 0
+            ? EscapeIdentifier(name)
+            : EscapeIdentifier(name[..parameterStart]) + "<"
+                + string.Join(", ", name[(parameterStart + 1)..^1].Split(',').Select(static parameter => EscapeIdentifier(parameter.Trim()))) + ">";
     }
 
     private static string BuildByteArrayInner(byte[] data)

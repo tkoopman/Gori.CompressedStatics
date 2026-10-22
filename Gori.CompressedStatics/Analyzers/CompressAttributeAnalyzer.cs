@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 
-using Gori.Roslyn;
+using Gori.Common.Roslyn;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -33,6 +33,21 @@ public sealed class CompressAttributeAnalyzer : DiagnosticAnalyzer
             // These only raised by the generator. Added here so still show up in IDE.
             DiagnosticDescriptors.BrotliNotAvailable,
             DiagnosticDescriptors.InvalidBase64String,
+            DiagnosticDescriptors.TransformerTypeNotFound,
+            DiagnosticDescriptors.TransformerTypeNotConcreteClass,
+            DiagnosticDescriptors.TransformerIsAmbiguous,
+            DiagnosticDescriptors.TransformerTypeIsGeneric,
+            DiagnosticDescriptors.TransformerTypeNotAssignable,
+            DiagnosticDescriptors.TransformerTypeHasNoPublicParameterlessConstructor,
+            DiagnosticDescriptors.TransformerMemberNotFound,
+            DiagnosticDescriptors.TransformerMemberNotAssignable,
+            DiagnosticDescriptors.TransformerExceptionThrownLoadingInstance,
+            DiagnosticDescriptors.TransformerUnknownErrorLoadingInstance,
+            DiagnosticDescriptors.TransformerExceptionThrown,
+            DiagnosticDescriptors.InvalidCSharpTransformerSource,
+            DiagnosticDescriptors.TransformerConstructorNotFound,
+            DiagnosticDescriptors.TransformerConstructorIsAmbiguous,
+            DiagnosticDescriptors.InvalidTransformerArgument,
         ];
 
     /// <inheritdoc/>
@@ -176,7 +191,8 @@ public sealed class CompressAttributeAnalyzer : DiagnosticAnalyzer
                                                                               && !IsGeneratedConstructor(member, context.CancellationToken));
 
                         bool hasDefaultCacheMode = cacheModeArgument is null
-                            || cacheModeArgument.Expression.ToString().EndsWith("CompressionCacheMode.OnInit", StringComparison.Ordinal);
+                            || (context.SemanticModel.GetConstantValue(cacheModeArgument.Expression, context.CancellationToken).Value
+                                is int cacheMode && cacheMode == (int)CompressionCacheMode.OnInit);
                         bool isTarCompressedProperty =  hasDefaultCacheMode && IsTarCompressedProperty(propertySymbol);
 
                         if (isTarCompressedProperty)

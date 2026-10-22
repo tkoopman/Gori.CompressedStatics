@@ -1,6 +1,6 @@
-using System.Collections.Immutable;
 using System.Text;
 
+using Gori.Common.Roslyn.Test;
 using Gori.CompressedStatics.Generators;
 
 using Microsoft.CodeAnalysis;
@@ -15,23 +15,8 @@ public sealed class CompressSourceGeneratorTests(ITestOutputHelper output)
 
     [Theory]
     [ClassData(typeof(TestData.TarCompressTestData))]
-    public async Task GeneratorTests(string source, string[] expectedParts, string[] unexpectedParts)
-    {
-        var project = new MockProject(source, cancellationToken: TestContext.Current.CancellationToken);
-        string generatedText = await project.RunGeneratorDumpAll<CompressStaticsGenerator>();
-
-        output.WriteLine(generatedText);
-
-        foreach (string expectedPart in expectedParts)
-        {
-            Assert.Contains(expectedPart, generatedText, StringComparison.Ordinal);
-        }
-
-        foreach (string unexpectedPart in unexpectedParts)
-        {
-            Assert.DoesNotContain(unexpectedPart, generatedText, StringComparison.Ordinal);
-        }
-    }
+    public async Task GeneratorTests(MockSourceData data)
+        => await MockProject.AssertGeneratorTest<CompressStaticsGenerator>(data, output);
 
     [Fact]
     public async Task DoesNotEmitOutput_WhenNoSupportedAttributesAreUsed()
@@ -44,12 +29,11 @@ public sealed class CompressSourceGeneratorTests(ITestOutputHelper output)
             }
             """;
 
-        var project = new MockProject(source, cancellationToken: TestContext.Current.CancellationToken);
-        string generatedText = await project.RunGeneratorDumpAll<CompressStaticsGenerator>();
-
-        output.WriteLine(generatedText);
-
-        Assert.Empty(generatedText);
+        await MockProject.AssertGeneratorTest<CompressStaticsGenerator>(new MockSourceData
+        {
+            SourceCode = source,
+            Expectations = [FileExpectation.NoOthers],
+        }, output);
     }
 
     [Fact]
@@ -66,13 +50,15 @@ public sealed class CompressSourceGeneratorTests(ITestOutputHelper output)
             }
             """;
 
-        var project = new MockProject(source, cancellationToken: TestContext.Current.CancellationToken);
-        string generatedText = await project.RunGeneratorDumpAll<CompressStaticsGenerator>();
-
-        output.WriteLine(generatedText);
-
-        Assert.Contains("public static partial string GetText()", generatedText, StringComparison.Ordinal);
-        Assert.DoesNotContain("__cache_", generatedText, StringComparison.Ordinal);
+        await MockProject.AssertGeneratorTest<CompressStaticsGenerator>(new MockSourceData
+        {
+            SourceCode = source,
+            Expectations =
+            [
+                new FileExpectation { IsExpected = true, Content = "public static partial string GetText()" },
+                new FileExpectation { IsExpected = false, Content = "__cache_" },
+            ],
+        }, output);
     }
 
     [Fact]
@@ -89,15 +75,17 @@ public sealed class CompressSourceGeneratorTests(ITestOutputHelper output)
             }
             """;
 
-        var project = new MockProject(source, cancellationToken: TestContext.Current.CancellationToken);
-        string generatedText = await project.RunGeneratorDumpAll<CompressStaticsGenerator>();
-
-        output.WriteLine(generatedText);
-
-        Assert.Contains($"private static readonly byte[] {Const.CompressedFieldNamePrefix}", generatedText, StringComparison.Ordinal);
-        Assert.Contains($"private static string {Const.CacheFieldNamePrefix}Value", generatedText, StringComparison.Ordinal);
-        Assert.Contains($"??= {Const.DecompressStaticsClassFullName}.AsString({Const.CompressedFieldNamePrefix}", generatedText, StringComparison.Ordinal);
-        Assert.Contains($"{Const.AlgorithmEnumFullName}.GZip", generatedText, StringComparison.Ordinal);
+        await MockProject.AssertGeneratorTest<CompressStaticsGenerator>(new MockSourceData
+        {
+            SourceCode = source,
+            Expectations =
+            [
+                new FileExpectation { IsExpected = true, Content = $"private static readonly byte[] {Const.CompressedFieldNamePrefix}" },
+                new FileExpectation { IsExpected = true, Content = $"private static string {Const.CacheFieldNamePrefix}Value" },
+                new FileExpectation { IsExpected = true, Content = $"??= {Const.DecompressStaticsClassFullName}.AsString({Const.CompressedFieldNamePrefix}" },
+                new FileExpectation { IsExpected = true, Content = $"{Const.AlgorithmEnumFullName}.GZip" },
+            ],
+        }, output);
     }
 
     [Fact]
@@ -114,13 +102,15 @@ public sealed class CompressSourceGeneratorTests(ITestOutputHelper output)
             }
             """;
 
-        var project = new MockProject(source, cancellationToken: TestContext.Current.CancellationToken);
-        string generatedText = await project.RunGeneratorDumpAll<CompressStaticsGenerator>();
-
-        output.WriteLine(generatedText);
-
-        Assert.Contains($"private static readonly string {Const.CacheFieldNamePrefix}", generatedText, StringComparison.Ordinal);
-        Assert.Contains($"= {Const.DecompressStaticsClassFullName}.AsString({Const.CompressedFieldNamePrefix}", generatedText, StringComparison.Ordinal);
+        await MockProject.AssertGeneratorTest<CompressStaticsGenerator>(new MockSourceData
+        {
+            SourceCode = source,
+            Expectations =
+            [
+                new FileExpectation { IsExpected = true, Content = $"private static readonly string {Const.CacheFieldNamePrefix}" },
+                new FileExpectation { IsExpected = true, Content = $"= {Const.DecompressStaticsClassFullName}.AsString({Const.CompressedFieldNamePrefix}" },
+            ],
+        }, output);
     }
 
     [Fact]
@@ -137,15 +127,117 @@ public sealed class CompressSourceGeneratorTests(ITestOutputHelper output)
             }
             """;
 
-        var project = new MockProject(source, cancellationToken: TestContext.Current.CancellationToken);
-        string generatedText = await project.RunGeneratorDumpAll<CompressStaticsGenerator>();
+        await MockProject.AssertGeneratorTest<CompressStaticsGenerator>(new MockSourceData
+        {
+            SourceCode = source,
+            Expectations =
+            [
+                new FileExpectation { IsExpected = true, Content = $"private static readonly global::System.Lazy<string> {Const.CacheFieldNamePrefix}" },
+                new FileExpectation { IsExpected = true, Content = $"= new(() => {Const.DecompressStaticsClassFullName}.AsString({Const.CompressedFieldNamePrefix}" },
+                new FileExpectation { IsExpected = true, Content = $"=> {Const.CacheFieldNamePrefix}" },
+                new FileExpectation { IsExpected = true, Content = ".Value;" },
+            ],
+        }, output);
+    }
 
-        output.WriteLine(generatedText);
+    public static TheoryData<string?, bool> RawBinaryCacheCases
+    {
+        get
+        {
+            var data = new TheoryData<string?, bool>();
+            foreach (string? mode in new string?[] { null, "OnInit", "Lazy", "LazyThreadSafe" })
+            {
+                foreach (bool empty in new[] { false, true })
+                {
+                    data.Add(new(mode, empty) { Label = $"{mode ?? "Default"}: {(empty ? "empty" : "nonempty")} raw bytes" });
+                }
+            }
 
-        Assert.Contains($"private static readonly global::System.Lazy<string> {Const.CacheFieldNamePrefix}", generatedText, StringComparison.Ordinal);
-        Assert.Contains($"= new(() => {Const.DecompressStaticsClassFullName}.AsString({Const.CompressedFieldNamePrefix}", generatedText, StringComparison.Ordinal);
-        Assert.Contains($"=> {Const.CacheFieldNamePrefix}", generatedText, StringComparison.Ordinal);
-        Assert.Contains(".Value;", generatedText, StringComparison.Ordinal);
+            return data;
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(RawBinaryCacheCases))]
+    public async Task RawBinaryPropertiesHonorCacheModeAndMethodsRemainUncached(string? mode, bool empty)
+    {
+        string payload = empty ? string.Empty : "AQID";
+        string configuration = mode is null ? string.Empty : $", CacheMode = CompressionCacheMode.{mode}";
+        var project = MockProject.Create(typeof(CompressFileAttribute).Assembly, new MockSourceData
+        {
+            SourceCode = $$"""
+                using Gori.CompressedStatics;
+                public static partial class Sample
+                {
+                    [CompressString("{{payload}}"{{configuration}})]
+                    public static partial byte[] @event { get; }
+                    [CompressString("{{payload}}")]
+                    public static partial byte[] Read();
+                }
+                """,
+        }, out _, cancellationToken: TestContext.Current.CancellationToken);
+        GeneratorDriver driver = project.CreateGeneratorDriver<CompressStaticsGenerator>()
+            .RunGeneratorsAndUpdateCompilation(await project.GetCompilationAsync(), out Compilation compilation, out _, TestContext.Current.CancellationToken);
+        GeneratorDriverRunResult driverRunResults = driver.GetRunResult();
+        output.Write(driverRunResults);
+
+        GeneratorRunResult result = Assert.Single(driverRunResults.Results);
+
+        Assert.Null(result.Exception);
+        Assert.Empty(result.Diagnostics);
+        string source = Assert.Single(result.GeneratedSources, item => item.HintName.Contains(".event.", StringComparison.Ordinal)).SourceText.ToString();
+        Assert.Contains("// Compression algorithm: Raw", source, StringComparison.Ordinal);
+        Assert.DoesNotContain(Const.CompressedFieldNamePrefix, source, StringComparison.Ordinal);
+        Assert.DoesNotContain(Const.DecompressStaticsClassFullName, source, StringComparison.Ordinal);
+        string literal = empty ? "[]" : "[1, 2, 3]";
+        string cacheField = Const.CacheFieldNamePrefix + "event";
+        switch (mode)
+        {
+            case "Lazy":
+                Assert.Contains($"=> {cacheField} ??= {literal};", source, StringComparison.Ordinal);
+                break;
+            case "LazyThreadSafe":
+                Assert.Contains($"global::System.Lazy<byte[]> {cacheField} = new(() => {literal});", source, StringComparison.Ordinal);
+                Assert.Contains($"=> {cacheField}.Value;", source, StringComparison.Ordinal);
+                break;
+            default:
+                Assert.Contains($"private static readonly byte[] {cacheField} = {literal};", source, StringComparison.Ordinal);
+                Assert.Contains($"=> {cacheField};", source, StringComparison.Ordinal);
+                break;
+        }
+
+        using var stream = new MemoryStream();
+        Microsoft.CodeAnalysis.Emit.EmitResult emitted = compilation.Emit(stream, cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(emitted.Success, string.Join(Environment.NewLine, emitted.Diagnostics));
+        stream.Position = 0;
+        var loadContext = new System.Runtime.Loader.AssemblyLoadContext(nameof(RawBinaryPropertiesHonorCacheModeAndMethodsRemainUncached), isCollectible: true);
+        try
+        {
+            Type type = Assert.IsType<Type>(loadContext.LoadFromStream(stream).GetType("Sample"), exactMatch: false);
+            System.Reflection.PropertyInfo property = Assert.IsType<System.Reflection.PropertyInfo>(type.GetProperty("event"), exactMatch: false);
+            System.Reflection.MethodInfo method = Assert.IsType<System.Reflection.MethodInfo>(type.GetMethod("Read"), exactMatch: false);
+            byte[] first = Assert.IsType<byte[]>(property.GetValue(null));
+            Assert.Equal(empty ? [] : [1, 2, 3], first);
+            Assert.Same(first, property.GetValue(null));
+            if (!empty)
+            {
+                first[0] = 99;
+                Assert.Equal([99, 2, 3], Assert.IsType<byte[]>(property.GetValue(null)));
+                byte[] methodFirst = Assert.IsType<byte[]>(method.Invoke(null, null));
+                methodFirst[0] = 42;
+                byte[] methodSecond = Assert.IsType<byte[]>(method.Invoke(null, null));
+                Assert.NotSame(methodFirst, methodSecond);
+                Assert.Equal([1, 2, 3], methodSecond);
+            }
+            else
+            {
+                Assert.Empty(Assert.IsType<byte[]>(method.Invoke(null, null)));
+            }
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
     }
 
     [Fact]
@@ -164,17 +256,17 @@ public sealed class CompressSourceGeneratorTests(ITestOutputHelper output)
             }
             """;
 
-        var project = new MockProject(cancellationToken: TestContext.Current.CancellationToken);
-
-        _ = project.AddAdditionalFile($"src\\{relativeFilePath}", RelativeFileContent)
-                   .AddDocument(source, "src\\Sample.cs");
-
-        string generatedText = await project.RunGeneratorDumpAll<CompressStaticsGenerator>();
-
-        output.WriteLine(generatedText);
-
-        Assert.Contains("public static partial string FromFile", generatedText, StringComparison.Ordinal);
-        Assert.Contains($"{Const.DecompressStaticsClassFullName}.AsString(", generatedText, StringComparison.Ordinal);
+        await MockProject.AssertGeneratorTest<CompressStaticsGenerator>(new MockSourceData
+        {
+            SourceCode = source,
+            SourcePath = "src\\Sample.cs",
+            AdditionalFilesWithContent = [new($"src\\{relativeFilePath}", RelativeFileContent)],
+            Expectations =
+            [
+                new FileExpectation { IsExpected = true, Content = "public static partial string FromFile" },
+                new FileExpectation { IsExpected = true, Content = $"{Const.DecompressStaticsClassFullName}.AsString(" },
+            ],
+        }, output);
     }
 
     [Fact]
@@ -193,17 +285,17 @@ public sealed class CompressSourceGeneratorTests(ITestOutputHelper output)
             }
             """;
 
-        var project = new MockProject(cancellationToken: TestContext.Current.CancellationToken);
-
-        _ = project.AddAdditionalFile(relativeFilePath, RelativeToProjectContent)
-                   .AddDocument(source, "src\\Sample.cs");
-
-        string generatedText = await project.RunGeneratorDumpAll<CompressStaticsGenerator>();
-
-        output.WriteLine(generatedText);
-
-        Assert.Contains("public static partial string FromProject", generatedText, StringComparison.Ordinal);
-        Assert.DoesNotContain("// Uncompressed: 0 bytes", generatedText, StringComparison.Ordinal);
+        await MockProject.AssertGeneratorTest<CompressStaticsGenerator>(new MockSourceData
+        {
+            SourceCode = source,
+            SourcePath = "src\\Sample.cs",
+            AdditionalFilesWithContent = [new(relativeFilePath, RelativeToProjectContent)],
+            Expectations =
+            [
+                new FileExpectation { IsExpected = true, Content = "public static partial string FromProject" },
+                new FileExpectation { IsExpected = false, Content = "// Uncompressed: 0 bytes" },
+            ],
+        }, output);
     }
 
     [Fact]
@@ -237,14 +329,13 @@ public sealed class CompressSourceGeneratorTests(ITestOutputHelper output)
             }
             """;
 
-        var project = new MockProject(cancellationToken: TestContext.Current.CancellationToken);
+        var project = new MockProject(typeof(CompressFileAttribute).Assembly, cancellationToken: TestContext.Current.CancellationToken);
 
         Document document = project.AddDocument(original);
         GeneratorDriver driver = project.CreateGeneratorDriver<CompressStaticsGenerator>();
         Compilation compilation = await project.GetCompilationAsync();
 
         driver = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
-        ImmutableArray<GeneratorRunResult> results = driver.GetRunResult().Results;
         GeneratorRunResult result = Assert.Single(driver.GetRunResult().Results);
 
         IReadOnlyList<(object Value, IncrementalStepRunReason Reason)> outputs =

@@ -1,7 +1,8 @@
 using System.Collections.Immutable;
+using System.Composition;
 using System.Diagnostics.CodeAnalysis;
 
-using Gori.Roslyn;
+using Gori.Common.Roslyn;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
@@ -14,8 +15,9 @@ namespace Gori.CompressedStatics.CodeFix;
 
 /// <summary>
 /// A code fix provider that updates <see cref="CompressFileAttribute.RelativeToProject"/>
-/// when the opposite path resolves to an additional file.
+/// when the opposite path resolves to an additional file or a compiled C# source file.
 /// </summary>
+[Shared]
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(CompressFileAttributeAdditionalFileCodeFixProvider))]
 public sealed class CompressFileAttributeAdditionalFileCodeFixProvider : CodeFixProvider
 {

@@ -36,6 +36,5 @@ internal static class SymbolExtraction
     public static MemberKind GetMemberKind(ISymbol symbol)
         => symbol is IMethodSymbol ? MemberKind.Method
          : symbol is IPropertySymbol ? MemberKind.Property
-         : symbol is INamedTypeSymbol { TypeKind: TypeKind.Class } ? MemberKind.Class
          : MemberKind.Unknown;
 }

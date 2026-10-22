@@ -1,5 +1,7 @@
 using System.Collections;
 
+using Gori.Common.Roslyn.Test;
+
 namespace Gori.CompressedStatics.Testing.TestData;
 
 /// <summary>
@@ -24,6 +26,7 @@ internal sealed class GenericTypeAnalyzerTestData : IEnumerable<TheoryDataRow<Mo
                     public static partial string Value { get; }
                 }
                 """,
+                Expectations = [DiagnosticExpectation.NoOthers],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -43,6 +46,7 @@ internal sealed class GenericTypeAnalyzerTestData : IEnumerable<TheoryDataRow<Mo
                     public static partial string Value { get; }
                 }
                 """,
+                Expectations = [DiagnosticExpectation.NoOthers],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -63,6 +67,7 @@ internal sealed class GenericTypeAnalyzerTestData : IEnumerable<TheoryDataRow<Mo
                     public static partial string Value { get; }
                 }
                 """,
+                Expectations = [DiagnosticExpectation.NoOthers],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -85,10 +90,13 @@ internal sealed class GenericTypeAnalyzerTestData : IEnumerable<TheoryDataRow<Mo
                     }
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.GenericTypesUnsupported.Id,
-                DiagnosticMessageExpected =
+                Expectations =
                 [
-                    Const.CompressStringAttributeShortName,
+                    new DiagnosticExpectation(DiagnosticDescriptors.GenericTypesUnsupported)
+                    {
+                        IsExpected = true,
+                        Message = Const.CompressStringAttributeShortName,
+                    },
                 ],
             })
         {
@@ -109,10 +117,13 @@ internal sealed class GenericTypeAnalyzerTestData : IEnumerable<TheoryDataRow<Mo
                     public static partial string Value { get; }
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.GenericTypesUnsupported.Id,
-                DiagnosticMessageExpected =
+                Expectations =
                 [
-                    Const.CompressFileAttributeShortName,
+                    new DiagnosticExpectation(DiagnosticDescriptors.GenericTypesUnsupported)
+                    {
+                        IsExpected = true,
+                        Message = Const.CompressFileAttributeShortName,
+                    },
                 ],
             })
         {
@@ -133,10 +144,13 @@ internal sealed class GenericTypeAnalyzerTestData : IEnumerable<TheoryDataRow<Mo
                     public static partial string Value();
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.GenericTypesUnsupported.Id,
-                DiagnosticMessageExpected =
+                Expectations =
                 [
-                    Const.CompressStringAttributeShortName,
+                    new DiagnosticExpectation(DiagnosticDescriptors.GenericTypesUnsupported)
+                    {
+                        IsExpected = true,
+                        Message = Const.CompressStringAttributeShortName,
+                    },
                 ],
             })
         {
@@ -157,10 +171,13 @@ internal sealed class GenericTypeAnalyzerTestData : IEnumerable<TheoryDataRow<Mo
                     public static partial string Value { get; }
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.GenericTypesUnsupported.Id,
-                DiagnosticMessageExpected =
+                Expectations =
                 [
-                    Const.CompressStringAttributeShortName,
+                    new DiagnosticExpectation(DiagnosticDescriptors.GenericTypesUnsupported)
+                    {
+                        IsExpected = true,
+                        Message = Const.CompressStringAttributeShortName,
+                    },
                 ],
             })
         {
@@ -180,10 +197,13 @@ internal sealed class GenericTypeAnalyzerTestData : IEnumerable<TheoryDataRow<Mo
                 {
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.GenericTypesUnsupported.Id,
-                DiagnosticMessageExpected =
+                Expectations =
                 [
-                    Const.TarCompressAttributeShortName,
+                    new DiagnosticExpectation(DiagnosticDescriptors.GenericTypesUnsupported)
+                    {
+                        IsExpected = true,
+                        Message = Const.TarCompressAttributeShortName,
+                    },
                 ],
             })
         {

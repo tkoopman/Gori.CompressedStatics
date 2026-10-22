@@ -12,7 +12,6 @@
     <EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
     <Authors>Tim Koopman</Authors>
     <AnalysisLevel>latest-all</AnalysisLevel>
-    <Version>1.0.0</Version>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -23,12 +22,19 @@
     <IncludeSymbols>false</IncludeSymbols>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <NoPackageAnalysis>true</NoPackageAnalysis>
+    <FileVersion>2.0.0.26295</FileVersion>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <Version>$(AssemblyVersion)</Version>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <Version>$(AssemblyVersion)-dev</Version>
   </PropertyGroup>
 
   <ItemGroup>
     <!-- CodeStringBuilder and it's dependency BCL Memory-->
     <PackageReference Include="Gori.CodeStringBuilder" Version="1.1.2" GeneratePathProperty="true" />
-    <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.11" PrivateAssets="all" GeneratePathProperty="true" />
+    <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.13" PrivateAssets="all" GeneratePathProperty="true" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,5 +1,7 @@
 using System.Collections;
 
+using Gori.Common.Roslyn.Test;
+
 namespace Gori.CompressedStatics.Testing.TestData;
 
 /// <summary>
@@ -23,10 +25,7 @@ internal sealed class StaticPartialAnalyzerTestData : IEnumerable<TheoryDataRow<
                     public static partial string GetText();
                 }
                 """,
-                DiagnosticId = null,
-                DiagnosticMessageExpected =
-                [
-                ],
+                Expectations = [DiagnosticExpectation.NoOthers],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -46,10 +45,7 @@ internal sealed class StaticPartialAnalyzerTestData : IEnumerable<TheoryDataRow<
                     public static partial string Value { get; }
                 }
                 """,
-                DiagnosticId = null,
-                DiagnosticMessageExpected =
-                [
-                ],
+                Expectations = [DiagnosticExpectation.NoOthers],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -69,10 +65,7 @@ internal sealed class StaticPartialAnalyzerTestData : IEnumerable<TheoryDataRow<
                     public static partial string Data { get; }
                 }
                 """,
-                DiagnosticId = null,
-                DiagnosticMessageExpected =
-                [
-                ],
+                Expectations = [DiagnosticExpectation.NoOthers],
             })
         {
             Traits = { { "Category", [Category] } },

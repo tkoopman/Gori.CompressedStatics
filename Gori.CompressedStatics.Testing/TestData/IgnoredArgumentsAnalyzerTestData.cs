@@ -1,5 +1,7 @@
 using System.Collections;
 
+using Gori.Common.Roslyn.Test;
+
 namespace Gori.CompressedStatics.Testing.TestData;
 
 /// <summary>
@@ -24,6 +26,7 @@ internal sealed class IgnoredArgumentsAnalyzerTestData : IEnumerable<TheoryDataR
                     public static partial string Data { get; }
                 }
                 """,
+                Expectations = [DiagnosticExpectation.NoOthers],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -43,6 +46,7 @@ internal sealed class IgnoredArgumentsAnalyzerTestData : IEnumerable<TheoryDataR
                     public static partial string Value { get; }
                 }
                 """,
+                Expectations = [DiagnosticExpectation.NoOthers],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -62,6 +66,7 @@ internal sealed class IgnoredArgumentsAnalyzerTestData : IEnumerable<TheoryDataR
                     public static partial string GetText();
                 }
                 """,
+                Expectations = [DiagnosticExpectation.NoOthers],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -82,6 +87,7 @@ internal sealed class IgnoredArgumentsAnalyzerTestData : IEnumerable<TheoryDataR
                     public static partial string Value { get; }
                 }
                 """,
+                Expectations = [DiagnosticExpectation.NoOthers],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -102,6 +108,7 @@ internal sealed class IgnoredArgumentsAnalyzerTestData : IEnumerable<TheoryDataR
                     public static partial string Value { get; }
                 }
                 """,
+                Expectations = [DiagnosticExpectation.NoOthers],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -123,6 +130,7 @@ internal sealed class IgnoredArgumentsAnalyzerTestData : IEnumerable<TheoryDataR
                     public static partial string GetData();
                 }
                 """,
+                Expectations = [DiagnosticExpectation.NoOthers],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -143,20 +151,20 @@ internal sealed class IgnoredArgumentsAnalyzerTestData : IEnumerable<TheoryDataR
                     public static partial string Data { get; }
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.IgnoreAlgorithmOnTarMember.Id,
-                DiagnosticMessageExpected =
+                Expectations =
                 [
-                    "'Data'",
-                ],
-                CodeFixShouldOffer = true,
-                CodeFixExpected =
-                [
-                    """[CompressFile("data.txt")]"""
-                ],
-                CodeFixNotExpected =
-                [
-                    "Algorithm",
-                    "CompressionAlgorithm.GZip"
+                    new DiagnosticExpectation(DiagnosticDescriptors.IgnoreAlgorithmOnTarMember)
+                    {
+                        IsExpected = true,
+                        Message = "'Data'",
+                        CodeFixExpectations =
+                        [
+                            CodeFixExpectation.NotEmpty,
+                            new CodeFixExpectation { IsExpected = true, Code = """[CompressFile("data.txt")]""" },
+                            new CodeFixExpectation { IsExpected = false, Code = "Algorithm" },
+                            new CodeFixExpectation { IsExpected = false, Code = "CompressionAlgorithm.GZip" },
+                        ],
+                    },
                 ],
             })
         {
@@ -178,20 +186,20 @@ internal sealed class IgnoredArgumentsAnalyzerTestData : IEnumerable<TheoryDataR
                     public static partial string Value { get; }
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.IgnoreAlgorithmOnTarMember.Id,
-                DiagnosticMessageExpected =
+                Expectations =
                 [
-                    "'Value'",
-                ],
-                CodeFixShouldOffer = true,
-                CodeFixExpected =
-                [
-                    """[CompressString("hello")]"""
-                ],
-                CodeFixNotExpected =
-                [
-                    "Algorithm",
-                    "CompressionAlgorithm.GZip"
+                    new DiagnosticExpectation(DiagnosticDescriptors.IgnoreAlgorithmOnTarMember)
+                    {
+                        IsExpected = true,
+                        Message = "'Value'",
+                        CodeFixExpectations =
+                        [
+                            CodeFixExpectation.NotEmpty,
+                            new CodeFixExpectation { IsExpected = true, Code = """[CompressString("hello")]""" },
+                            new CodeFixExpectation { IsExpected = false, Code = "Algorithm" },
+                            new CodeFixExpectation { IsExpected = false, Code = "CompressionAlgorithm.GZip" },
+                        ],
+                    },
                 ],
             })
         {
@@ -216,21 +224,21 @@ internal sealed class IgnoredArgumentsAnalyzerTestData : IEnumerable<TheoryDataR
                     public static partial string Value2 { get; }
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.IgnoreAlgorithmOnTarMember.Id,
-                DiagnosticMessageExpected =
+                Expectations =
                 [
-                    "'Value2'",
-                ],
-                CodeFixShouldOffer = true,
-                CodeFixExpected =
-                [
-                    """[CompressString("hello1", Algorithm = CompressionAlgorithm.GZip)]""",
-                    """[CompressString("hello2")]"""
-                ],
-                CodeFixNotExpected =
-                [
-                    """[CompressString("hello1")]""",
-                    """[CompressString("hello2", Algorithm = CompressionAlgorithm.GZip)]"""
+                    new DiagnosticExpectation(DiagnosticDescriptors.IgnoreAlgorithmOnTarMember)
+                    {
+                        IsExpected = true,
+                        Message = "'Value2'",
+                        CodeFixExpectations =
+                        [
+                            CodeFixExpectation.NotEmpty,
+                            new CodeFixExpectation { IsExpected = true, Code = """[CompressString("hello1", Algorithm = CompressionAlgorithm.GZip)]""" },
+                            new CodeFixExpectation { IsExpected = true, Code = """[CompressString("hello2")]""" },
+                            new CodeFixExpectation { IsExpected = false, Code = """[CompressString("hello1")]""" },
+                            new CodeFixExpectation { IsExpected = false, Code = """[CompressString("hello2", Algorithm = CompressionAlgorithm.GZip)]""" },
+                        ],
+                    },
                 ],
             })
         {
@@ -251,16 +259,19 @@ internal sealed class IgnoredArgumentsAnalyzerTestData : IEnumerable<TheoryDataR
                     public static partial string GetText();
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.IgnoreCacheModeOnMethods.Id,
-                CodeFixShouldOffer = true,
-                CodeFixExpected =
+                Expectations =
                 [
-                    "[CompressString(\"hello\")]",
-                ],
-                CodeFixNotExpected =
-                [
-                    "CacheMode",
-                    "LazyThreadSafe",
+                    new DiagnosticExpectation(DiagnosticDescriptors.IgnoreCacheModeOnMethods)
+                    {
+                        IsExpected = true,
+                        CodeFixExpectations =
+                        [
+                            CodeFixExpectation.NotEmpty,
+                            new CodeFixExpectation { IsExpected = true, Code = "[CompressString(\"hello\")]" },
+                            new CodeFixExpectation { IsExpected = false, Code = "CacheMode" },
+                            new CodeFixExpectation { IsExpected = false, Code = "LazyThreadSafe" },
+                        ],
+                    },
                 ],
             })
         {
@@ -281,16 +292,19 @@ internal sealed class IgnoredArgumentsAnalyzerTestData : IEnumerable<TheoryDataR
                     public static partial string GetData();
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.IgnoreCacheModeOnMethods.Id,
-                CodeFixShouldOffer = true,
-                CodeFixExpected =
+                Expectations =
                 [
-                    "[CompressFile(\"data.txt\")]",
-                ],
-                CodeFixNotExpected =
-                [
-                    "CacheMode",
-                    "OnInit",
+                    new DiagnosticExpectation(DiagnosticDescriptors.IgnoreCacheModeOnMethods)
+                    {
+                        IsExpected = true,
+                        CodeFixExpectations =
+                        [
+                            CodeFixExpectation.NotEmpty,
+                            new CodeFixExpectation { IsExpected = true, Code = "[CompressFile(\"data.txt\")]" },
+                            new CodeFixExpectation { IsExpected = false, Code = "CacheMode" },
+                            new CodeFixExpectation { IsExpected = false, Code = "OnInit" },
+                        ],
+                    },
                 ],
             })
         {
@@ -311,16 +325,19 @@ internal sealed class IgnoredArgumentsAnalyzerTestData : IEnumerable<TheoryDataR
                     public static partial string GetText();
                 }
                 """,
-                DiagnosticId = DiagnosticDescriptors.IgnoreCacheModeOnMethods.Id,
-                CodeFixShouldOffer = true,
-                CodeFixExpected =
+                Expectations =
                 [
-                    "[CompressString(\"hello\", Algorithm = CompressionAlgorithm.GZip)]",
-                ],
-                CodeFixNotExpected =
-                [
-                    "CacheMode",
-                    "LazyThreadSafe",
+                    new DiagnosticExpectation(DiagnosticDescriptors.IgnoreCacheModeOnMethods)
+                    {
+                        IsExpected = true,
+                        CodeFixExpectations =
+                        [
+                            CodeFixExpectation.NotEmpty,
+                            new CodeFixExpectation { IsExpected = true, Code = "[CompressString(\"hello\", Algorithm = CompressionAlgorithm.GZip)]" },
+                            new CodeFixExpectation { IsExpected = false, Code = "CacheMode" },
+                            new CodeFixExpectation { IsExpected = false, Code = "LazyThreadSafe" },
+                        ],
+                    },
                 ],
             })
         {

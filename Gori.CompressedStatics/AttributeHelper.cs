@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 
-using Gori.Roslyn;
+using Gori.Common.Roslyn;
 
 using Microsoft.CodeAnalysis;
 
