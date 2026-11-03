@@ -2,6 +2,8 @@ using Gori.Common.Roslyn.Test;
 using Gori.CompressedStatics.Analyzers;
 using Gori.CompressedStatics.CodeFix;
 
+using Microsoft.CodeAnalysis.CSharp;
+
 namespace Gori.CompressedStatics.Testing;
 
 public sealed class TransformerArgumentsCodeFixTests(ITestOutputHelper output)
@@ -11,27 +13,33 @@ public sealed class TransformerArgumentsCodeFixTests(ITestOutputHelper output)
         get
         {
             var data = new TheoryData<MockSourceData>();
+            string typeName = typeof(CodeFixTransformer).FullName!;
+            string typeLiteral = SymbolDisplay.FormatLiteral(typeName, true);
+            string memberLiteral = SymbolDisplay.FormatLiteral(typeName + "::Selected", true);
+            string qualifiedType = SymbolDisplay.FormatLiteral(typeof(CodeFixTransformer).AssemblyQualifiedName!, true);
+            string qualifiedMember = SymbolDisplay.FormatLiteral(typeof(CodeFixTransformer).AssemblyQualifiedName + "::Selected", true);
+            string constantDeclaration = $"private const string Selector = {qualifiedMember};";
             (string Configuration, string WithoutArguments, string? WithoutMember, string Label)[] cases =
             [
                 ("TransformerArguments = []", "", null, "Missing selector"),
-                ("Transformer = null, TransformerArguments = null", "Transformer = null", null, "Null selector and arguments"),
-                ("TransformerArguments = new object[] { 1 }, Transformer = \"Example.Provider::Selected\"",
-                    "Transformer = \"Example.Provider::Selected\"",
-                    "TransformerArguments = new object[] { 1 }, Transformer = \"Example.Provider\"", "Arguments before selector"),
-                ("Transformer = \"Example.Provider, Example.Assembly::Selected\", TransformerArguments = []",
-                    "Transformer = \"Example.Provider, Example.Assembly::Selected\"",
-                    "Transformer = \"Example.Provider, Example.Assembly\", TransformerArguments = []", "Assembly-qualified selector"),
-                ("Transformer = @\" Example.Provider :: Selected \", TransformerArguments = null",
-                    "Transformer = @\" Example.Provider :: Selected \"",
-                    "Transformer = \"Example.Provider\", TransformerArguments = null", "Padded verbatim selector"),
-                ("Transformer = \"\"\"Example.Provider::Selected\"\"\", TransformerArguments = [1, \"prefix\"]",
-                    "Transformer = \"\"\"Example.Provider::Selected\"\"\"",
-                    "Transformer = \"Example.Provider\", TransformerArguments = [1, \"prefix\"]", "Raw literal"),
+                ("Transformer = null, TransformerArguments = []", "Transformer = null", null, "Null selector with arguments"),
+                ($"TransformerArguments = new object[] {{ 1 }}, Transformer = {memberLiteral}",
+                    $"Transformer = {memberLiteral}",
+                    $"TransformerArguments = new object[] {{ 1 }}, Transformer = {typeLiteral}", "Arguments before selector"),
+                ($"Transformer = {qualifiedMember}, TransformerArguments = []",
+                    $"Transformer = {qualifiedMember}",
+                    $"Transformer = {qualifiedType}, TransformerArguments = []", "Assembly-qualified selector"),
+                ($"Transformer = @\" {typeName} :: Selected \", TransformerArguments = []",
+                    $"Transformer = @\" {typeName} :: Selected \"",
+                    $"Transformer = {typeLiteral}, TransformerArguments = []", "Padded verbatim selector"),
+                ($"Transformer = \"\"\"{typeName}::Selected\"\"\", TransformerArguments = [1, \"prefix\"]",
+                    $"Transformer = \"\"\"{typeName}::Selected\"\"\"",
+                    $"Transformer = {typeLiteral}, TransformerArguments = [1, \"prefix\"]", "Raw literal"),
                 ("Transformer = Selector, TransformerArguments = []", "Transformer = Selector",
-                    "Transformer = \"Example.Provider, Example.Assembly\", TransformerArguments = []", "Constant selector"),
-                ("Transformer = \"Example.Provider\" + \"::Selected\", TransformerArguments = []",
-                    "Transformer = \"Example.Provider\" + \"::Selected\"",
-                    "Transformer = \"Example.Provider\", TransformerArguments = []", "Concatenated selector"),
+                    $"Transformer = {qualifiedType}, TransformerArguments = []", "Constant selector"),
+                ($"Transformer = {typeLiteral} + \"::Selected\", TransformerArguments = []",
+                    $"Transformer = {typeLiteral} + \"::Selected\"",
+                    $"Transformer = {typeLiteral}, TransformerArguments = []", "Concatenated selector"),
             ];
             foreach (string attribute in new[] { "CompressFile", "CompressString" })
             {
@@ -75,7 +83,7 @@ public sealed class TransformerArgumentsCodeFixTests(ITestOutputHelper output)
                             {
                                 IsExpected = true,
                                 EquivalenceKey = key,
-                                Code = "private const string Selector = \"Example.Provider, Example.Assembly::Selected\";",
+                                Code = constantDeclaration,
                             });
                             fixes.Add(new CodeFixExpectation { IsExpected = true, EquivalenceKey = key, Code = declaration });
                         }
@@ -86,7 +94,7 @@ public sealed class TransformerArgumentsCodeFixTests(ITestOutputHelper output)
                                 using Gori.CompressedStatics;
                                 public static partial class Sample
                                 {
-                                    private const string Selector = "Example.Provider, Example.Assembly::Selected";
+                                    {{constantDeclaration}}
 
                                     {{AttributeText(attribute, configuration)}}
                                     {{declaration}}
@@ -118,7 +126,62 @@ public sealed class TransformerArgumentsCodeFixTests(ITestOutputHelper output)
     [Theory]
     [MemberData(nameof(FixCases))]
     public async Task FixesConfigurationWithoutChangingOtherArguments(MockSourceData data)
-        => await MockProject.AssertAnalyserTests<TransformerAttributeAnalyzer, TransformerArgumentsCodeFixProvider>(data, output);
+        => await MockProject.AssertAnalyzerTests<TransformerAnalyzer, TransformerArgumentsCodeFixProvider>(data, output);
+
+    public static TheoryData<MockSourceData> NullArgumentCases
+    {
+        get
+        {
+            TheoryData<MockSourceData> data = [];
+            string member = SymbolDisplay.FormatLiteral(typeof(CodeFixTransformer).AssemblyQualifiedName + "::Selected", true);
+            foreach (string attribute in new[] { "CompressFile", "CompressString" })
+            {
+                foreach (bool method in new[] { false, true })
+                {
+                    foreach (string configuration in new[] { "TransformerArguments = null", "Transformer = null, TransformerArguments = null", $"Transformer = {member}, TransformerArguments = null" })
+                    {
+                        data.Add(new(new MockSourceData
+                        {
+                            SourceCode = $$"""
+                                using Gori.CompressedStatics;
+                                public static partial class Sample
+                                {
+                                    {{AttributeText(attribute, configuration)}}
+                                    public static partial string Value{{(method ? "();" : " { get; }")}}
+                                }
+                                """,
+                            Expectations = [DiagnosticExpectation.NoOthers],
+                        })
+                        { Label = $"{attribute} {(method ? "method" : "property")}: {configuration}" });
+                    }
+                }
+            }
+
+            return data;
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(NullArgumentCases))]
+    public async Task NullArgumentsDoNotRequireCodeFix(MockSourceData data)
+        => await MockProject.AssertAnalyzerTests<TransformerAnalyzer, TransformerArgumentsCodeFixProvider>(data, output);
+
+    public sealed class CodeFixTransformer : TypeHelperTests.StringTransformer
+    {
+        public CodeFixTransformer()
+        {
+        }
+
+        public CodeFixTransformer(int value)
+        {
+        }
+
+        public CodeFixTransformer(int value, string prefix)
+        {
+        }
+
+        public static CodeFixTransformer Selected { get; } = new();
+    }
 
     private static string AttributeText(string attribute, string configuration)
         => $"[{attribute}(\"payload\", {(configuration.Length == 0 ? string.Empty : configuration + ", ")}Algorithm = CompressionAlgorithm.GZip)]";

@@ -83,24 +83,52 @@ public sealed class CompressStaticsGenerator : IIncrementalGenerator
                 ? member.WithSourceValue(pair.Right[index].SourceValue)
                 : member.Invalidate()));
 
-        // Merge string and file members into a single per-element stream.
-        IncrementalValuesProvider<ProcessingResult<CompressAttributeInfo>> transformationResults = stringMembers.Collect()
+        IncrementalValuesProvider<CompressAttributeInfo> allMembers = stringMembers.Collect()
             .Combine(resolvedFileMembers.Collect())
-            .SelectMany(static (pair, cancellationToken) => pair.Left.AddRange(pair.Right))
-            .Combine(context.CompilationProvider)
-            .Select(static (pair, cancellationToken) => pair.Left.TransformInput(pair.Right, cancellationToken))
+            .SelectMany(static (pair, cancellationToken) => pair.Left.AddRange(pair.Right));
+
+        IncrementalValuesProvider<CompressAttributeInfo> noTransformerMembers = allMembers
+            .Where(static member => !member.TransformerType.IsValid(noneIsValid: false));
+
+        IncrementalValuesProvider<CompressAttributeInfo> basicTransformerMembers = allMembers
+            .Where(static member => member.TransformerType is TransformerType.Binary or TransformerType.String);
+
+        IncrementalValuesProvider<CompressAttributeInfo> compilationTransformerMembers = allMembers
+            .Where(static member => member.TransformerType is TransformerType.BinaryCompilation or TransformerType.StringCompilation);
+
+        IncrementalValuesProvider<ProcessingResult<CompressAttributeInfo>> basicTransformationResults = basicTransformerMembers
+            .Select(static (pair, cancellationToken) => pair.TransformInput(null, cancellationToken))
             .WithTrackingName(TransformationTrackingName);
 
-        context.RegisterSourceOutput(transformationResults, static (productionContext, result) =>
+        context.RegisterSourceOutput(basicTransformationResults, static (productionContext, result) =>
         {
-            if (result.Diagnostic is DiagnosticInfo diagnostic)
+            foreach (DiagnosticInfo diagnostic in result.Diagnostics)
             {
                 productionContext.ReportDiagnostic(diagnostic.ToDiagnostic(result.Input.Location.ToLocation()));
             }
         });
 
-        IncrementalValuesProvider<CompressAttributeInfo> mergedMembers = transformationResults
-            .Select(static (result, cancellationToken) => result.Input);
+        IncrementalValuesProvider<ProcessingResult<CompressAttributeInfo>> compilationTransformationResults = compilationTransformerMembers
+            .Combine(context.CompilationProvider)
+            .Select(static (pair, cancellationToken) => pair.Left.TransformInput(pair.Right, cancellationToken))
+            .WithTrackingName(TransformationTrackingName);
+
+        context.RegisterSourceOutput(compilationTransformationResults, static (productionContext, result) =>
+        {
+            foreach (DiagnosticInfo diagnostic in result.Diagnostics)
+            {
+                productionContext.ReportDiagnostic(diagnostic.ToDiagnostic(result.Input.Location.ToLocation()));
+            }
+        });
+
+        IncrementalValuesProvider<CompressAttributeInfo> mergedMembers = noTransformerMembers.Collect()
+            .Combine(basicTransformationResults.Select(static (result, _) => result.Input).Collect())
+            .Combine(compilationTransformationResults.Select(static (result, _) => result.Input).Collect())
+            .SelectMany(static (tuple, _) =>
+            {
+                ((ImmutableArray<CompressAttributeInfo> arr1, ImmutableArray<CompressAttributeInfo> arr2), ImmutableArray<CompressAttributeInfo> arr3) = tuple;
+                return arr1.Concat(arr2).Concat(arr3);
+            });
 
         // Resolve members for tar-covered members
         IncrementalValuesProvider<ProcessingResult<TarMembers>> tarResults = tarMembers
@@ -112,7 +140,7 @@ public sealed class CompressStaticsGenerator : IIncrementalGenerator
 
         context.RegisterSourceOutput(tarResults, static (productionContext, result) =>
         {
-            if (result.Diagnostic is DiagnosticInfo diagnostic)
+            foreach (DiagnosticInfo diagnostic in result.Diagnostics)
             {
                 productionContext.ReportDiagnostic(diagnostic.ToDiagnostic(result.Input.Location.ToLocation()));
             }
@@ -128,7 +156,7 @@ public sealed class CompressStaticsGenerator : IIncrementalGenerator
 
         context.RegisterSourceOutput(individualResults, static (productionContext, result) =>
         {
-            if (result.Diagnostic is DiagnosticInfo diagnostic)
+            foreach (DiagnosticInfo diagnostic in result.Diagnostics)
             {
                 productionContext.ReportDiagnostic(diagnostic.ToDiagnostic(result.Input.Location.ToLocation()));
             }
@@ -143,7 +171,7 @@ public sealed class CompressStaticsGenerator : IIncrementalGenerator
         context.RegisterSourceOutput(individualMembers, static (productionContext, pair) =>
         {
             string source = MemberEmitter.Emit(productionContext, pair.Input, pair.Supports);
-            if (string.IsNullOrWhiteSpace(source))
+            if (source.IsWhiteSpace())
             {
                 return;
             }
@@ -162,7 +190,7 @@ public sealed class CompressStaticsGenerator : IIncrementalGenerator
             productionContext.CancellationToken.ThrowIfCancellationRequested();
 
             string source = TypeEmitter.EmitTar(productionContext, pair.Left, pair.Right);
-            if (string.IsNullOrWhiteSpace(source))
+            if (source.IsWhiteSpace())
             {
                 return;
             }

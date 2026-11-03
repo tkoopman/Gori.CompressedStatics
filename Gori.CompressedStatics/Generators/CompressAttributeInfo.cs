@@ -109,6 +109,11 @@ internal readonly struct CompressAttributeInfo : IEquatable<CompressAttributeInf
     public bool RelativeToProject { get; init; }
 
     /// <summary>
+    /// Gets type of transformer assigned.
+    /// </summary>
+    public TransformerType TransformerType { get; init; }
+
+    /// <summary>
     /// Gets the transformer selector, or null when no custom transformer is selected.
     /// </summary>
     public string? Transformer { get; init; }
@@ -225,6 +230,7 @@ internal readonly struct CompressAttributeInfo : IEquatable<CompressAttributeInf
         && SourceBytes.Span.SequenceEqual(other.SourceBytes.Span)
         && StringComparer.Ordinal.Equals(FilePath, other.FilePath)
         && RelativeToProject == other.RelativeToProject
+        && TransformerType == other.TransformerType
         && StringComparer.Ordinal.Equals(Transformer, other.Transformer)
         && StringComparer.Ordinal.Equals(TransformerMember, other.TransformerMember)
         && TransformerArguments.IsDefault == other.TransformerArguments.IsDefault
@@ -254,6 +260,7 @@ internal readonly struct CompressAttributeInfo : IEquatable<CompressAttributeInf
 
             hashCode = (hashCode * 397) ^ (FilePath is null ? 0 : StringComparer.Ordinal.GetHashCode(FilePath));
             hashCode = (hashCode * 397) ^ RelativeToProject.GetHashCode();
+            hashCode = (hashCode * 397) ^ (int)TransformerType;
             hashCode = (hashCode * 397) ^ (Transformer is null ? 0 : StringComparer.Ordinal.GetHashCode(Transformer));
             hashCode = (hashCode * 397) ^ (TransformerMember is null ? 0 : StringComparer.Ordinal.GetHashCode(TransformerMember));
             hashCode = (hashCode * 397) ^ TransformerArguments.IsDefault.GetHashCode();

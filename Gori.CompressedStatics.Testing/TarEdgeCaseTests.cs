@@ -39,9 +39,9 @@ public sealed class TarEdgeCaseTests(ITestOutputHelper output)
                         if (compressed)
                         {
                             expectations.Add(new FileExpectation { IsExpected = true, Content = "// Uncompressed: 267 bytes" });
-                            expectations.Add(new FileExpectation { IsExpected = true, Content = $"{textTarget} = {Const.DecompressStaticsClassFullName}.SegmentAsString(tarUncompressed, 0, 256);" });
-                            expectations.Add(new FileExpectation { IsExpected = true, Content = $"{bytesTarget} = {Const.DecompressStaticsClassFullName}.SegmentAsBytes(tarUncompressed, 256, 3);" });
-                            expectations.Add(new FileExpectation { IsExpected = true, Content = $"{Const.CacheFieldNamePrefix}Tail = {Const.DecompressStaticsClassFullName}.SegmentAsString(tarUncompressed, 259, 8);" });
+                            expectations.Add(new FileExpectation { IsExpected = true, Content = $"{bytesTarget} = {Const.DecompressStaticsClassFullName}.SegmentAsBytes(tarUncompressed, 0, 3);" });
+                            expectations.Add(new FileExpectation { IsExpected = true, Content = $"{Const.CacheFieldNamePrefix}Tail = {Const.DecompressStaticsClassFullName}.SegmentAsString(tarUncompressed, 3, 8);" });
+                            expectations.Add(new FileExpectation { IsExpected = true, Content = $"{textTarget} = {Const.DecompressStaticsClassFullName}.SegmentAsString(tarUncompressed, 11, 256);" });
                         }
                         else
                         {
@@ -92,7 +92,7 @@ public sealed class TarEdgeCaseTests(ITestOutputHelper output)
     [Theory]
     [MemberData(nameof(MixedMemberCases))]
     public async Task MixedPartialAndAutoPropertiesAreAcceptedByAnalyzer(MockSourceData data)
-        => await MockProject.AssertAnalyserTests<CompressAttributeAnalyzer>(data, output);
+        => await MockProject.AssertAnalyzerTests<CompressAttributeAnalyzer>(data, output);
 
     public static TheoryData<MockSourceData> ExistingConstructorCases
         => [
@@ -122,8 +122,8 @@ public sealed class TarEdgeCaseTests(ITestOutputHelper output)
                     new FileExpectation { IsExpected = true, Content = $"Interlocked.Increment(ref {Const.TarBufferUseCountFieldName}) == 2" },
                     new FileExpectation { IsExpected = true, Content = $"{Const.CacheFieldNamePrefix}Empty = \"\";" },
                     new FileExpectation { IsExpected = true, Content = $"{Const.CacheFieldNamePrefix}EmptyBytes = [];" },
-                    new FileExpectation { IsExpected = true, Content = $"SegmentAsString({Const.TarBufferMethodName}(), 0, 4)" },
-                    new FileExpectation { IsExpected = true, Content = $"SegmentAsBytes({Const.TarBufferMethodName}(), 4, 3)" },
+                    new FileExpectation { IsExpected = true, Content = $"SegmentAsBytes({Const.TarBufferMethodName}(), 0, 3)" },
+                    new FileExpectation { IsExpected = true, Content = $"SegmentAsString({Const.TarBufferMethodName}(), 3, 4)" },
                     new FileExpectation { IsExpected = true, Content = $"{Const.TarBufferFieldName} = null;" },
                 ],
             }) { Label = "Empty members do not consume shared-buffer uses or shift non-empty offsets" },
@@ -177,7 +177,7 @@ public sealed class TarEdgeCaseTests(ITestOutputHelper output)
     [Theory]
     [MemberData(nameof(CacheModeCases))]
     public async Task EquivalentCacheModeConstantsHaveIdenticalTarDiagnostics(MockSourceData data)
-        => await MockProject.AssertAnalyserTests<CompressAttributeAnalyzer>(data, output);
+        => await MockProject.AssertAnalyzerTests<CompressAttributeAnalyzer>(data, output);
 
     public static TheoryData<MockSourceData> NullExclusionCases
         => [
@@ -233,7 +233,8 @@ public sealed class TarEdgeCaseTests(ITestOutputHelper output)
                         new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBePartial) { IsExpected = true },
                         DiagnosticExpectation.NoOthers,
                     ],
-                }) { Label = $"Non-default cache mode via {expression} stays outside TAR" });
+                })
+                { Label = $"Non-default cache mode via {expression} stays outside TAR" });
             }
 
             return data;
@@ -243,7 +244,7 @@ public sealed class TarEdgeCaseTests(ITestOutputHelper output)
     [Theory]
     [MemberData(nameof(NonDefaultCacheModeCases))]
     public async Task NonDefaultCacheModeIsNotMistakenForTarByItsSpelling(MockSourceData data)
-        => await MockProject.AssertAnalyserTests<CompressAttributeAnalyzer>(data, output);
+        => await MockProject.AssertAnalyzerTests<CompressAttributeAnalyzer>(data, output);
 
     [Fact]
     public async Task ExclusionsAndLazyMembersDoNotShiftIncludedTarOffsets()

@@ -1,6 +1,20 @@
 ; Shipped analyzer releases
 ; https://github.com/dotnet/roslyn/blob/main/src/RoslynAnalyzers/Microsoft.CodeAnalysis.Analyzers/ReleaseTrackingAnalyzers.Help.md
 
+## Release 2.1.0
+
+### New Rules
+
+Rule ID | Category               | Severity | Notes
+--------|------------------------|----------|--------------------
+GCS034  | CSharpRewriter         | Error    | Invalid rewriter configuration
+GCS035  | CSharpRewriter         | Warning  | Unfiltered diagnostic ignore rule
+GCS036  | CSharpRewriter         | Error    | Incomplete type mapping placeholder
+GCS037  | CSharpRewriter         | Error    | Conflicting configuration at the same scope
+GCS038  | CSharpRewriter         | Warning  | Compiler binding error in rewritten source
+GCS039  | CSharpRewriter         | Warning  | Unresolvable reference in rewritten source
+GCS040  | CSharpRewriter         | Warning  | Mapping overlaps an ignored compiler diagnostic
+
 ## Release 1.0.1
 
 ### New Rules

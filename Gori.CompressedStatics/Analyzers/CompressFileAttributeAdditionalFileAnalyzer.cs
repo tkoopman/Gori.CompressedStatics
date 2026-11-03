@@ -62,19 +62,30 @@ public sealed class CompressFileAttributeAdditionalFileAnalyzer : DiagnosticAnal
 
             if (attribute.ConstructorArguments.Length < 1
                 || attribute.ConstructorArguments[0].Value is not string filePath
-                || string.IsNullOrWhiteSpace(filePath))
+                || filePath.IsWhiteSpace())
             {
                 continue;
             }
 
             bool relativeToProject = attribute.GetNamedArgumentAsBool(nameof(CompressFileAttribute.RelativeToProject));
 
-            if (relativeToProject && string.IsNullOrWhiteSpace(projectPath))
+            if (relativeToProject && (projectPath is null || projectPath.IsWhiteSpace()))
             {
+                // Check if file exists relative to the current source file path, and if so, offer a code fix to remove RelativeToProject.
+                ImmutableDictionary<string, string?> properties = [];
+                if (TryGetAbsoluteFilePath(currentPath, projectPath, filePath, relativeToProject: false, out string sourceRelativeFilePath)
+                    && HasMatchingFile(context, sourceRelativeFilePath))
+                {
+                    properties = properties.Add("RelativeToProjectAction", "Remove");
+                }
+
                 context.ReportDiagnostic(
                     Diagnostic.Create(
                         DiagnosticDescriptors.MSBuildProjectDirectoryNotVisible,
-                        attributedDeclaration.GetLocation()));
+                        attributedDeclaration.GetLocation(),
+                        properties));
+
+                continue;
             }
 
             if (TryGetAbsoluteFilePath(currentPath, projectPath, filePath, relativeToProject, out string absoluteFilePath)
@@ -117,7 +128,7 @@ public sealed class CompressFileAttributeAdditionalFileAnalyzer : DiagnosticAnal
         out string absoluteFilePath)
     {
         absoluteFilePath = string.Empty;
-        if (relativeToProject && string.IsNullOrWhiteSpace(projectPath))
+        if (relativeToProject && (projectPath is null || projectPath.IsWhiteSpace()))
         {
             return false;
         }
@@ -141,7 +152,7 @@ public sealed class CompressFileAttributeAdditionalFileAnalyzer : DiagnosticAnal
         out string relativeFilePath)
     {
         relativeFilePath = string.Empty;
-        if (relativeToProject && string.IsNullOrWhiteSpace(projectPath))
+        if (relativeToProject && (projectPath is null || projectPath.IsWhiteSpace()))
         {
             return false;
         }

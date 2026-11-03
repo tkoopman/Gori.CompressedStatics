@@ -278,4 +278,60 @@ public static class DiagnosticDescriptors
         category: Const.DiagnosticDescriptorCategory,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor CSharpRewriterInvalidConfiguration = new(
+        id: Const.DiagnosticDescriptorIDPrefix + "034",
+        title: "Invalid CSharpRewriter configuration",
+        messageFormat: "Invalid CSharpRewriter configuration: {0}{1}",
+        category: "CSharpRewriter",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor CSharpRewriterBroadIgnore = new(
+        id: Const.DiagnosticDescriptorIDPrefix + "035",
+        title: "CSharpRewriter ignore rule has no message filter",
+        messageFormat: "CSharpRewriter ignores all '{0}' diagnostics in this scope; consider specifying MessageContains",
+        category: "CSharpRewriter",
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor CSharpRewriterMappingPlaceholder = new(
+        id: Const.DiagnosticDescriptorIDPrefix + "036",
+        title: "Complete CSharpRewriter type mapping",
+        messageFormat: "Replace the placeholder destination for type mapping '{0}' with the intended fully qualified type name",
+        category: "CSharpRewriter",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor CSharpRewriterConflictingConfiguration = new(
+        id: Const.DiagnosticDescriptorIDPrefix + "037",
+        title: "Conflicting CSharpRewriter configuration",
+        messageFormat: "Conflicting CSharpRewriter rules for '{0}' at the same scope; no rule is selected{1}",
+        category: "CSharpRewriter",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor CSharpRewriterBindingIssue = new(
+        id: Const.DiagnosticDescriptorIDPrefix + "038",
+        title: "CSharpRewriter input has a binding error",
+        messageFormat: "Member '{0}' has compiler binding error {1}: {2}{3}",
+        category: "CSharpRewriter",
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor CSharpRewriterUnresolvable = new(
+        id: Const.DiagnosticDescriptorIDPrefix + "039",
+        title: "CSharpRewriter input contains an unresolvable reference",
+        messageFormat: "Member '{0}' contains an unresolvable {1}: '{2}'{3}",
+        category: "CSharpRewriter",
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor CSharpRewriterMappingIgnoreOverlap = new(
+        id: Const.DiagnosticDescriptorIDPrefix + "040",
+        title: "CSharpRewriter mapping overlaps an ignored diagnostic",
+        messageFormat: "Mapping '{0}' to '{1}' rewrote a reference with ignored compiler diagnostic {2} (message filter: {3}){4}",
+        category: "CSharpRewriter",
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true);
 }

@@ -89,51 +89,26 @@ internal static class ValueTransformerHelper
     }
 
     /// <summary>
-    /// Takes transformer input and extracts type and member values if valid format.
-    /// Null is classed as valid format to use no transformers, so type can be null even when true.
-    /// Does not validate the existence of type or member just that the format was correct.
+    /// Is valid transformer type.
     /// </summary>
-    /// <param name="value">The Transformer input value.</param>
-    /// <param name="type">Type extracted from value.</param>
-    /// <param name="member">Member extracted from value if provided.</param>
-    /// <returns>True if value was valid user input.</returns>
-    public static bool IsValidTransformerValue(string? value, out string? type, out string? member)
-    {
-        type = null;
-        member = null;
+    /// <param name="transformerType">Transformer type to check.</param>
+    /// <param name="noneIsValid">Whether TransformerType.None is considered valid.</param>
+    /// <returns>True if valid.</returns>
+    public static bool IsValid(this TransformerType transformerType, bool noneIsValid = true)
+        => noneIsValid
+        ? transformerType is TransformerType.None
+            or TransformerType.String
+            or TransformerType.Binary
+            or TransformerType.StringCompilation
+            or TransformerType.BinaryCompilation
+        : transformerType is TransformerType.String
+            or TransformerType.Binary
+            or TransformerType.StringCompilation
+            or TransformerType.BinaryCompilation;
 
-        if (value is null)
-        {
-            return true;
-        }
-
-        if (value.IsWhiteSpace())
-        {
-            return false;
-        }
-
-        string[] split = value.Split(["::"], StringSplitOptions.None);
-        type = split[0].Trim();
-
-        switch (split.Length)
-        {
-            case 1:
-                return type.Length > 0;
-
-            case 2:
-                member = split[1].Trim();
-                return type.Length > 0 && member.Length > 0;
-
-            case > 2:
-                member = split[1].Trim();
-                return false;
-
-            // Should never hit default as Split should always return at least 1 element, but just in case.
-            default:
-                type = null;
-                return false;
-        }
-    }
+    /// <inheritdoc cref="IsValidTransformerValue(string?, ReturnType, out string?, out string?, out Error, out Type?, out MemberInfo?)"/>
+    public static TransformerType IsValidTransformerValue(string? value, ReturnType returnType, out string? type, out string? member, out Error error)
+        => IsValidTransformerValue(value, returnType, out type, out member, out error, out _, out _);
 
     /// <summary>
     /// Transforms valid input, returning diagnostics separately from the processed payload.
@@ -145,7 +120,7 @@ internal static class ValueTransformerHelper
     /// <returns>The processed member and optional diagnostic. Failure permanently invalidates the member.</returns>
     public static ProcessingResult<CompressAttributeInfo> TransformInput(
         this CompressAttributeInfo attribute,
-        Compilation compilation,
+        Compilation? compilation,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -156,9 +131,12 @@ internal static class ValueTransformerHelper
 
         try
         {
-            switch (attribute.ReturnType)
+            switch (attribute.TransformerType)
             {
-                case ReturnType.String:
+                case TransformerType.None:
+                    return new(attribute);
+
+                case TransformerType.String:
                     if (attribute.Transformer is null)
                     {
                         return new(attribute);
@@ -169,11 +147,11 @@ internal static class ValueTransformerHelper
                         return new(attribute.Invalidate(), ToDiagnostic(attribute, stringError));
                     }
 
-                    bool stringSuccess = stringTransformer.TryTransform(attribute, compilation, out string? text, out DiagnosticInfo? stringDiagnostic, cancellationToken);
+                    bool stringSuccess = stringTransformer.TryTransform(attribute, out string? text, out ImmutableArray<DiagnosticInfo> stringDiagnostics, cancellationToken);
                     cancellationToken.ThrowIfCancellationRequested();
-                    if (stringDiagnostic?.Severity == DiagnosticSeverity.Error || (!stringSuccess && stringDiagnostic is not null))
+                    if (!stringSuccess)
                     {
-                        return new(attribute.Invalidate(), stringDiagnostic);
+                        return new(attribute.Invalidate(), stringDiagnostics);
                     }
 
                     if (!stringSuccess || text is null)
@@ -181,9 +159,9 @@ internal static class ValueTransformerHelper
                         return MissingOutput(attribute);
                     }
 
-                    return new(attribute.WithSourceValue(text), stringDiagnostic);
+                    return new(attribute.WithSourceValue(text), stringDiagnostics);
 
-                case ReturnType.ByteArray:
+                case TransformerType.Binary:
                     IBinaryTransformer? binaryTransformer = null;
                     if (attribute.Transformer is not null
                         && !TryGetTransformer(attribute.Transformer, attribute.TransformerMember, attribute.TransformerArguments, out binaryTransformer, out Error binaryError))
@@ -192,19 +170,79 @@ internal static class ValueTransformerHelper
                     }
 
                     binaryTransformer ??= Base64Transformer.Instance;
-                    bool binarySuccess = binaryTransformer.TryTransform(attribute, compilation, out byte[]? bytes, out DiagnosticInfo? binaryDiagnostic, cancellationToken);
+                    bool binarySuccess = binaryTransformer.TryTransform(attribute, out byte[]? bytes, out ImmutableArray<DiagnosticInfo> binaryDiagnostics, cancellationToken);
                     cancellationToken.ThrowIfCancellationRequested();
-                    if (binaryDiagnostic?.Severity == DiagnosticSeverity.Error || (!binarySuccess && binaryDiagnostic is not null))
+                    if (!binarySuccess)
                     {
-                        return new(attribute.Invalidate(), binaryDiagnostic);
+                        return new(attribute.Invalidate(), binaryDiagnostics);
                     }
 
-                    if (!binarySuccess || bytes is null)
+                    if (bytes is null)
                     {
                         return MissingOutput(attribute);
                     }
 
-                    return new(attribute.WithSourceBytes(bytes), binaryDiagnostic);
+                    return new(attribute.WithSourceBytes(bytes), binaryDiagnostics);
+
+                case TransformerType.StringCompilation:
+                    if (compilation is null)
+                    {
+                        throw new ArgumentNullException(nameof(compilation), "Compilation is required for compilation transformers.");
+                    }
+
+                    if (attribute.Transformer is null)
+                    {
+                        return new(attribute);
+                    }
+
+                    if (!TryGetTransformer(attribute.Transformer, attribute.TransformerMember, attribute.TransformerArguments, out IStringCompilationTransformer? stringCompilationTransformer, out Error stringCompilationError))
+                    {
+                        return new(attribute.Invalidate(), ToDiagnostic(attribute, stringCompilationError));
+                    }
+
+                    bool stringCompilationSuccess = stringCompilationTransformer.TryTransform(attribute, compilation, out string? stringCompilationText, out ImmutableArray<DiagnosticInfo> stringCompilationDiagnostics, cancellationToken);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!stringCompilationSuccess)
+                    {
+                        return new(attribute.Invalidate(), stringCompilationDiagnostics);
+                    }
+
+                    if (stringCompilationText is null)
+                    {
+                        return MissingOutput(attribute);
+                    }
+
+                    return new(attribute.WithSourceValue(stringCompilationText), stringCompilationDiagnostics);
+
+                case TransformerType.BinaryCompilation:
+                    if (compilation is null)
+                    {
+                        throw new ArgumentNullException(nameof(compilation), "Compilation is required for compilation transformers.");
+                    }
+
+                    if (attribute.Transformer is null)
+                    {
+                        return new(attribute);
+                    }
+
+                    if (!TryGetTransformer(attribute.Transformer, attribute.TransformerMember, attribute.TransformerArguments, out IBinaryCompilationTransformer? binaryCompilationTransformer, out Error binaryCompilationError))
+                    {
+                        return new(attribute.Invalidate(), ToDiagnostic(attribute, binaryCompilationError));
+                    }
+
+                    bool binaryCompilationSuccess = binaryCompilationTransformer.TryTransform(attribute, compilation, out byte[]? binaryCompilationBytes, out ImmutableArray<DiagnosticInfo> binaryCompilationDiagnostics, cancellationToken);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!binaryCompilationSuccess)
+                    {
+                        return new(attribute.Invalidate(), binaryCompilationDiagnostics);
+                    }
+
+                    if (binaryCompilationBytes is null)
+                    {
+                        return MissingOutput(attribute);
+                    }
+
+                    return new(attribute.WithSourceBytes(binaryCompilationBytes), binaryCompilationDiagnostics);
 
                 default:
                     throw new InvalidOperationException("Unsupported input transformation return type.");
@@ -289,6 +327,128 @@ internal static class ValueTransformerHelper
             attribute.MemberName);
 
     /// <summary>
+    /// Takes transformer input and extracts type and member values if valid format.
+    /// Null is classed as valid format to use no transformers, so type can be null even when true.
+    /// Does not validate the existence of type or member just that the format was correct.
+    /// </summary>
+    /// <param name="value">The Transformer input value.</param>
+    /// <param name="returnType">The expected return type of the transformer.</param>
+    /// <param name="type">Type extracted from value.</param>
+    /// <param name="member">Member extracted from value if provided.</param>
+    /// <param name="error">Error if value was not valid. Only set if return value is TransformerType.NotFound.</param>
+    /// <param name="transformerType">The located transformer type if found.</param>
+    /// <param name="transformerMember">The located transformer member if found.</param>
+    /// <returns>True if value was valid user input.</returns>
+    private static TransformerType IsValidTransformerValue(string? value, ReturnType returnType, out string? type, out string? member, out Error error, out Type? transformerType, out MemberInfo? transformerMember)
+    {
+        type = null;
+        member = null;
+        transformerType = null;
+        transformerMember = null;
+
+        if (value is null)
+        {
+            error = Error.None;
+            return TransformerType.None;
+        }
+
+        if (value.IsWhiteSpace())
+        {
+            error = Error.InvalidFormat;
+            return TransformerType.NotFound;
+        }
+
+        string[] split = value.Split(["::"], StringSplitOptions.None);
+        type = split[0].Trim();
+        if (type.IsWhiteSpace())
+        {
+            error = Error.InvalidFormat;
+            return TransformerType.NotFound;
+        }
+
+        switch (split.Length)
+        {
+            case 2:
+                member = split[1].Trim();
+                break;
+
+            case > 2:
+                member = split[1].Trim();
+                error = Error.InvalidFormat;
+                return TransformerType.NotFound;
+        }
+
+        if (member is not null && member.IsWhiteSpace())
+        {
+            error = Error.MemberNotFound;
+            return TransformerType.NotFound;
+        }
+
+        if (!TryGetTransformerClassType(type, out transformerType, out error))
+        {
+            return TransformerType.NotFound;
+        }
+
+        if (member is null)
+        {
+            TransformerType t = GetTransformerType(transformerType, returnType);
+            error = t is TransformerType.NotFound ? Error.TypeNotAssignable : Error.None;
+            return t;
+        }
+
+        try
+        {
+            // If a member is provided, we need to check if it exists and is of the correct type.
+            FieldInfo? field = transformerType.GetField(member, BindingFlags.Public | BindingFlags.Static);
+            if (field is not null)
+            {
+                transformerMember = field;
+                TransformerType t = GetTransformerType(field.FieldType, returnType);
+                error = t is TransformerType.NotFound ? Error.MemberNotAssignable : Error.None;
+                return t;
+            }
+
+            PropertyInfo? property = transformerType.GetProperty(member, BindingFlags.Public | BindingFlags.Static);
+            if (property is not null)
+            {
+                transformerMember = property;
+                if (property.GetMethod is { IsPublic: true, IsStatic: true }
+                && property.GetIndexParameters().Length == 0)
+                {
+                    TransformerType t = GetTransformerType(property.PropertyType, returnType);
+                    error = t is TransformerType.NotFound ? Error.MemberNotAssignable : Error.None;
+                    return t;
+                }
+
+                error = Error.MemberNotAssignable;
+                return TransformerType.NotFound;
+            }
+
+            error = Error.MemberNotFound;
+            return TransformerType.NotFound;
+        }
+        catch (Exception exception) when (IsReflectionFailure(exception))
+        {
+            error = Error.ExceptionThrown;
+            return TransformerType.NotFound;
+        }
+
+        static TransformerType GetTransformerType(Type transformerType, ReturnType returnType)
+            => returnType switch
+            {
+                ReturnType.String => typeof(IStringTransformer).IsAssignableFrom(transformerType) ? TransformerType.String
+                    : typeof(IStringCompilationTransformer).IsAssignableFrom(transformerType) ? TransformerType.StringCompilation
+                    : TransformerType.NotFound,
+
+                ReturnType.ByteArray => typeof(IBinaryTransformer).IsAssignableFrom(transformerType) ? TransformerType.Binary
+                    : typeof(IBinaryCompilationTransformer).IsAssignableFrom(transformerType) ? TransformerType.BinaryCompilation
+                    : TransformerType.NotFound,
+
+                _ => TransformerType.NotFound,
+            };
+    }
+
+    /// <summary>
     /// Tries to locate type by name from loaded assemblies.
     /// Valid formats in order of attempt.
     /// <list type="table">
@@ -312,47 +472,19 @@ internal static class ValueTransformerHelper
     /// <returns>True if the type was found; otherwise, false.</returns>
     private static bool TryGetType(string typeName, [NotNullWhen(true)] out Type? type, out Error error)
     {
-        type = Type.GetType(typeName);
-        if (type is not null)
+        try
         {
-            error = Error.None;
-            return true;
-        }
-
-        foreach (Assembly? assembly in AppDomain.CurrentDomain.GetAssemblies())
-        {
-            Type t = assembly.GetType(typeName);
-            if (t is not null)
+            type = Type.GetType(typeName);
+            if (type is not null)
             {
-                if (type is null)
-                {
-                    type = t;
-                }
-                else
-                {
-                    error = Error.IsAmbiguous;
-                    return false;
-                }
+                error = Error.None;
+                return true;
             }
-        }
 
-        if (type is not null)
-        {
-            error = Error.None;
-            return true;
-        }
-
-        if (typeName.Contains('.'))
-        {
-            error = Error.TypeNotFound;
-            return false;
-        }
-
-        foreach (Assembly? assembly in AppDomain.CurrentDomain.GetAssemblies())
-        {
-            foreach (Type? t in assembly.GetTypes())
+            foreach (Assembly? assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
-                if (t.Name == typeName)
+                Type t = assembly.GetType(typeName);
+                if (t is not null)
                 {
                     if (type is null)
                     {
@@ -365,27 +497,74 @@ internal static class ValueTransformerHelper
                     }
                 }
             }
-        }
 
-        if (type is null)
+            if (type is not null)
+            {
+                error = Error.None;
+                return true;
+            }
+
+            if (typeName.Contains('.'))
+            {
+                error = Error.TypeNotFound;
+                return false;
+            }
+
+            foreach (Assembly? assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                foreach (Type? t in assembly.GetTypes())
+                {
+                    if (t.Name == typeName)
+                    {
+                        if (type is null)
+                        {
+                            type = t;
+                        }
+                        else
+                        {
+                            error = Error.IsAmbiguous;
+                            return false;
+                        }
+                    }
+                }
+            }
+
+            if (type is null)
+            {
+                error = Error.TypeNotFound;
+                return false;
+            }
+
+            error = Error.None;
+            return true;
+        }
+        catch (Exception exception) when (IsReflectionFailure(exception))
         {
-            error = Error.TypeNotFound;
+            type = null;
+            error = Error.ExceptionThrown;
             return false;
         }
-
-        error = Error.None;
-        return true;
     }
 
-    private static bool TryGetTransformerType(string typeName, [NotNullWhen(true)] out Type? type, out Error error)
+    private static bool TryGetTransformerClassType(string typeName, [NotNullWhen(true)] out Type? type, out Error error)
     {
         const string suffix = "Transformer";
         if (typeName.IndexOfAny(['.', ',', '+', '[', ']']) < 0)
         {
             Assembly builtInAssembly = typeof(Base64Transformer).Assembly;
             string qualifiedName = Const.Namespace + "." + typeName;
-            type = builtInAssembly.GetType(qualifiedName)
-                ?? (typeName.EndsWith(suffix, StringComparison.Ordinal) ? null : builtInAssembly.GetType(qualifiedName + suffix));
+            try
+            {
+                type = builtInAssembly.GetType(qualifiedName)
+                    ?? (typeName.EndsWith(suffix, StringComparison.Ordinal) ? null : builtInAssembly.GetType(qualifiedName + suffix));
+            }
+            catch (Exception exception) when (IsReflectionFailure(exception))
+            {
+                type = null;
+                error = Error.ExceptionThrown;
+                return false;
+            }
+
             if (type is not null)
             {
                 error = Error.None;
@@ -665,7 +844,7 @@ internal static class ValueTransformerHelper
     {
         try
         {
-            if (!TryGetTransformerType(transformerType, out Type? type, out error))
+            if (!TryGetTransformerClassType(transformerType, out Type? type, out error))
             {
                 transformer = null;
                 return false;

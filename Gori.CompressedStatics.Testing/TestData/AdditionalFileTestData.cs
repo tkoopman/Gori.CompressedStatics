@@ -87,6 +87,7 @@ internal class AdditionalFileTestData : IEnumerable<TheoryDataRow<MockSourceData
                             new CodeFixExpectation { IsExpected = false, EquivalenceKey = "CompressFileAttribute.ToggleRelativeToProject", Code = """[CompressFile("content\\file.txt", RelativeToProject = false)]""" },
                         ],
                     },
+                    DiagnosticExpectation.NoOthers,
                 ],
             }
         )
@@ -124,6 +125,7 @@ internal class AdditionalFileTestData : IEnumerable<TheoryDataRow<MockSourceData
                             new CodeFixExpectation { IsExpected = false, EquivalenceKey = "CompressFileAttribute.ToggleRelativeToProject", Code = """[CompressFile("content\\file.txt", RelativeToProject = false)]""" },
                         ],
                     },
+                    DiagnosticExpectation.NoOthers,
                 ],
             }
         )
@@ -163,6 +165,7 @@ internal class AdditionalFileTestData : IEnumerable<TheoryDataRow<MockSourceData
                             new CodeFixExpectation { IsExpected = false, EquivalenceKey = "CompressFileAttribute.ToggleRelativeToProject", Code = """[CompressFile(file: "content\\file.txt", RelativeToProject = false)]""" },
                         ],
                     },
+                    DiagnosticExpectation.NoOthers,
                 ],
             }
         )
@@ -200,6 +203,7 @@ internal class AdditionalFileTestData : IEnumerable<TheoryDataRow<MockSourceData
                             new CodeFixExpectation { IsExpected = false, EquivalenceKey = "CompressFileAttribute.RewriteFilePath", Code = """[CompressFile(@"content\file.txt", RelativeToProject = false)]""" },
                         ],
                     },
+                    DiagnosticExpectation.NoOthers,
                 ],
             }
         )
@@ -236,6 +240,7 @@ internal class AdditionalFileTestData : IEnumerable<TheoryDataRow<MockSourceData
                             new CodeFixExpectation { IsExpected = false, EquivalenceKey = "CompressFileAttribute.RewriteFilePath", Code = """[CompressFile(file: @"content\file.txt")]""" },
                         ],
                     },
+                    DiagnosticExpectation.NoOthers,
                 ],
             }
         )
@@ -272,6 +277,7 @@ internal class AdditionalFileTestData : IEnumerable<TheoryDataRow<MockSourceData
                             new CodeFixExpectation { IsExpected = false, EquivalenceKey = "CompressFileAttribute.RewriteFilePath", Code = """[CompressFile("content\\file.txt")]""" },
                         ],
                     },
+                    DiagnosticExpectation.NoOthers,
                 ],
             }
         )
@@ -308,6 +314,7 @@ internal class AdditionalFileTestData : IEnumerable<TheoryDataRow<MockSourceData
                             new CodeFixExpectation { IsExpected = false, EquivalenceKey = "CompressFileAttribute.ToggleRelativeToProject", Code = """[CompressFile("..\\content\\file.txt", RelativeToProject = true)]""" },
                         ],
                     },
+                    DiagnosticExpectation.NoOthers,
                 ],
             }
         )
@@ -344,6 +351,7 @@ internal class AdditionalFileTestData : IEnumerable<TheoryDataRow<MockSourceData
                             new CodeFixExpectation { IsExpected = false, EquivalenceKey = "CompressFileAttribute.RewriteFilePath", Code = """[CompressFile("..\\content\\file.txt", RelativeToProject = true)]""" },
                         ],
                     },
+                    DiagnosticExpectation.NoOthers,
                 ],
             }
         )

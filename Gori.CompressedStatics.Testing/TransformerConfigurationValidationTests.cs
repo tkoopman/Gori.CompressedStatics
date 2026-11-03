@@ -2,6 +2,9 @@ using Gori.Common.Roslyn.Test;
 using Gori.CompressedStatics.Analyzers;
 using Gori.CompressedStatics.Generators;
 
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+
 namespace Gori.CompressedStatics.Testing;
 
 public sealed class TransformerConfigurationValidationTests(ITestOutputHelper output)
@@ -9,29 +12,30 @@ public sealed class TransformerConfigurationValidationTests(ITestOutputHelper ou
     public static TheoryData<MockSourceData> SelectorCases
         => CreateCases(
         [
-            ("Transformer = \"\"", true),
-            ("Transformer = \"   \"", true),
-            ("Transformer = \"::Missing\"", true),
-            ("Transformer = \"Missing::\"", true),
-            ("Transformer = \"Missing::One::Two\", TransformerArguments = null", true),
-            ("Transformer = null", false),
-            ("Transformer = \"Missing\"", false),
-            ("Transformer = \" Missing, Assembly :: Selected \"", false),
-            ("Transformer = Selector", true),
-        ], DiagnosticDescriptors.InvalidTransformerFormat);
+            ("Transformer = \"\"", DiagnosticDescriptors.InvalidTransformerFormat),
+            ("Transformer = \"   \"", DiagnosticDescriptors.InvalidTransformerFormat),
+            ("Transformer = \"::Missing\"", DiagnosticDescriptors.InvalidTransformerFormat),
+            ("Transformer = \"Missing::\"", DiagnosticDescriptors.TransformerMemberNotFound),
+            ("Transformer = \"Missing::One::Two\", TransformerArguments = null", DiagnosticDescriptors.InvalidTransformerFormat),
+            ("Transformer = null", null),
+            ("Transformer = \"Unavailable.Transformers.DoesNotExist\"", DiagnosticDescriptors.TransformerTypeNotFound),
+            ($"Transformer = {MemberSelector}", null),
+            ("Transformer = Selector", DiagnosticDescriptors.TransformerMemberNotFound),
+        ]);
 
     public static TheoryData<MockSourceData> ArgumentCases
         => CreateCases(
         [
-            ("Transformer = \"Missing\", TransformerArguments = null", true),
-            ("Transformer = \"Missing\", TransformerArguments = []", false),
-            ("Transformer = \"Missing\", TransformerArguments = new object[] { typeof(Sample) }", false),
-            ("Transformer = \"Missing\"", false),
-            ("TransformerArguments = null", false),
-            ("Transformer = null, TransformerArguments = null", false),
-            ("Transformer = \"Missing::Selected\", TransformerArguments = null", false),
-            ("Transformer = \"Missing::\", TransformerArguments = null", false),
-        ], DiagnosticDescriptors.InvalidTransformerArgument);
+            ($"Transformer = {ConstructorSelector}, TransformerArguments = null", null),
+            ($"Transformer = {ConstructorSelector}, TransformerArguments = []", null),
+            ($"Transformer = {ConstructorSelector}, TransformerArguments = new object[] {{ typeof(Sample) }}", null),
+            ($"Transformer = {ConstructorSelector}", null),
+            ("TransformerArguments = null", null),
+            ("Transformer = null, TransformerArguments = null", null),
+            ($"Transformer = {MemberSelector}, TransformerArguments = null", null),
+            ($"Transformer = {MemberSelector}, TransformerArguments = []", DiagnosticDescriptors.TransformerArgumentsWithMember),
+            ("Transformer = \"Missing::\", TransformerArguments = null", DiagnosticDescriptors.TransformerMemberNotFound),
+        ]);
 
     public static TheoryData<MockSourceData> InvalidGeneratorCases
     {
@@ -71,7 +75,8 @@ public sealed class TransformerConfigurationValidationTests(ITestOutputHelper ou
                                         ? binary ? "__uncompressed_Value = [];" : "__uncompressed_Value = \"\";"
                                         : binary ? "=> [];" : "=> \"\";" },
                                 ],
-                            }) { Label = $"{configuration}: {(file ? "file" : "inline")}, {(binary ? "binary" : "string")}, {(tar ? "TAR" : "individual")}" });
+                            })
+                            { Label = $"{configuration}: {(file ? "file" : "inline")}, {(binary ? "binary" : "string")}, {(tar ? "TAR" : "individual")}" });
                         }
                     }
                 }
@@ -83,27 +88,33 @@ public sealed class TransformerConfigurationValidationTests(ITestOutputHelper ou
 
     [Theory]
     [MemberData(nameof(SelectorCases))]
-    public async Task SelectorAnalyzerReportsOnlyMalformedSelectors(MockSourceData data)
-        => await MockProject.AssertAnalyserTests<TransformerSelectorAnalyzer>(data, output);
+    public async Task ReportsSelectorSyntaxAndResolutionDiagnostics(MockSourceData data)
+        => await MockProject.AssertAnalyzerTests<TransformerAnalyzer>(data, output);
 
     [Theory]
     [MemberData(nameof(ArgumentCases))]
-    public async Task ArgumentAnalyzerValidatesOnlyUsedConstructorArrays(MockSourceData data)
-        => await MockProject.AssertAnalyserTests<TransformerArgumentsAnalyzer>(data, output);
+    public async Task ValidatesArgumentsForResolvableTransformers(MockSourceData data)
+        => await MockProject.AssertAnalyzerTests<TransformerAnalyzer>(data, output);
 
     [Theory]
     [MemberData(nameof(InvalidGeneratorCases))]
     public async Task GeneratorSilentlyClearsInvalidConfiguration(MockSourceData data)
         => await MockProject.AssertGeneratorTest<CompressStaticsGenerator>(data, output);
 
-    private static TheoryData<MockSourceData> CreateCases((string Configuration, bool Invalid)[] cases, Microsoft.CodeAnalysis.DiagnosticDescriptor descriptor)
+    private static string ConstructorSelector
+        => SymbolDisplay.FormatLiteral(typeof(TransformerGeneratorTests.PrefixStringTransformer).AssemblyQualifiedName!, true);
+
+    private static string MemberSelector
+        => SymbolDisplay.FormatLiteral(" " + typeof(TransformerConstructorTests.SelectedProvider).AssemblyQualifiedName + " :: Selected ", true);
+
+    private static TheoryData<MockSourceData> CreateCases((string Configuration, DiagnosticDescriptor? Diagnostic)[] cases)
     {
         var data = new TheoryData<MockSourceData>();
         foreach (string attribute in new[] { "CompressFile", "CompressString" })
         {
             foreach (bool method in new[] { false, true })
             {
-                foreach ((string configuration, bool invalid) in cases)
+                foreach ((string configuration, DiagnosticDescriptor? diagnostic) in cases)
                 {
                     data.Add(new(new MockSourceData
                     {
@@ -116,10 +127,11 @@ public sealed class TransformerConfigurationValidationTests(ITestOutputHelper ou
                                 public static partial string Value{{(method ? "();" : " { get; }")}}
                             }
                             """,
-                        Expectations = invalid
-                            ? [new DiagnosticExpectation(descriptor) { IsExpected = true }, DiagnosticExpectation.NoOthers]
+                        Expectations = diagnostic is not null
+                            ? [new DiagnosticExpectation(diagnostic) { IsExpected = true }, DiagnosticExpectation.NoOthers]
                             : [DiagnosticExpectation.NoOthers],
-                    }) { Label = $"{attribute} {(method ? "method" : "property")}: {configuration}" });
+                    })
+                    { Label = $"{attribute} {(method ? "method" : "property")}: {configuration}" });
                 }
             }
         }

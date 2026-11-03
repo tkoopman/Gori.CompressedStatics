@@ -1,8 +1,7 @@
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 
 using Gori.CompressedStatics.Generators;
-
-using Microsoft.CodeAnalysis;
 
 namespace Gori.CompressedStatics;
 
@@ -19,15 +18,14 @@ public class Base64Transformer : IBinaryTransformer
     /// <inheritdoc/>
     public bool TryTransform(
         ICompressionAttributeInfo? attribute,
-        Compilation compilation,
         [NotNullWhen(true)] out byte[]? output,
-        [NotNullWhen(false)] out DiagnosticInfo? diagnostic,
+        out ImmutableArray<DiagnosticInfo> diagnostics,
         CancellationToken cancellationToken)
     {
-        if (attribute is null || string.IsNullOrWhiteSpace(attribute.SourceValue))
+        if (attribute is null || attribute.SourceValue is null || attribute.SourceValue.IsWhiteSpace())
         {
             output = [];
-            diagnostic = null;
+            diagnostics = default;
             return true;
         }
 
@@ -36,15 +34,16 @@ public class Base64Transformer : IBinaryTransformer
         try
         {
             output = Convert.FromBase64String(attribute.SourceValue);
-            diagnostic = null;
+            diagnostics = default;
             return true;
         }
         catch (FormatException)
         {
             output = null;
-            diagnostic = new DiagnosticInfo(
-                DiagnosticDescriptors.InvalidBase64String,
-                attribute.MemberName);
+            diagnostics = [
+                new DiagnosticInfo(
+                    DiagnosticDescriptors.InvalidBase64String,
+                    attribute.MemberName)];
 
             return false;
         }

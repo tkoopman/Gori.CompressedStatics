@@ -205,9 +205,8 @@ public sealed class SourceFileTests(ITestOutputHelper output)
         _ = project.AddDocument(SourceContent, "Payload.cs");
 
         ImmutableArray<Diagnostic> diagnostics = await project.GetDiagnosticsAsync<CompressFileAttributeAdditionalFileAnalyzer>(excludeProjectDirectoryProperty: true);
-        Assert.Equal(2, diagnostics.Length);
-        _ = Assert.Single(diagnostics, d => d.Id == DiagnosticDescriptors.MSBuildProjectDirectoryNotVisible.Id);
-        _ = Assert.Single(diagnostics, d => d.Id == DiagnosticDescriptors.SourceFileMustBeAdditionalFile.Id);
+        Diagnostic diagnostic = Assert.Single(diagnostics);
+        Assert.Equal(DiagnosticDescriptors.MSBuildProjectDirectoryNotVisible.Id, diagnostic.Id);
     }
 
     [Fact]

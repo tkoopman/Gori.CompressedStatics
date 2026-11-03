@@ -27,7 +27,7 @@ internal sealed class GeneralCompressAnalyzerTestData : IEnumerable<TheoryDataRo
                     public static partial string GetText();
                 }
                 """,
-                Expectations = [new DiagnosticExpectation(DiagnosticDescriptors.OneAttributePerMember) { IsExpected = true }],
+                Expectations = [new DiagnosticExpectation(DiagnosticDescriptors.OneAttributePerMember) { IsExpected = true }, DiagnosticExpectation.NoOthers],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -47,7 +47,7 @@ internal sealed class GeneralCompressAnalyzerTestData : IEnumerable<TheoryDataRo
                     public static partial int GetValue();
                 }
                 """,
-                Expectations = [new DiagnosticExpectation(DiagnosticDescriptors.MemberMustReturnStringOrByteArray) { IsExpected = true }],
+                Expectations = [new DiagnosticExpectation(DiagnosticDescriptors.MemberMustReturnStringOrByteArray) { IsExpected = true }, DiagnosticExpectation.NoOthers],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -67,7 +67,7 @@ internal sealed class GeneralCompressAnalyzerTestData : IEnumerable<TheoryDataRo
                     public static partial object GetValue();
                 }
                 """,
-                Expectations = [new DiagnosticExpectation(DiagnosticDescriptors.MemberMustReturnStringOrByteArray) { IsExpected = true }],
+                Expectations = [new DiagnosticExpectation(DiagnosticDescriptors.MemberMustReturnStringOrByteArray) { IsExpected = true }, DiagnosticExpectation.NoOthers],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -87,7 +87,7 @@ internal sealed class GeneralCompressAnalyzerTestData : IEnumerable<TheoryDataRo
                     public static partial string? GetValue();
                 }
                 """,
-                Expectations = [new DiagnosticExpectation(DiagnosticDescriptors.MemberMustReturnStringOrByteArray) { IsExpected = true }],
+                Expectations = [new DiagnosticExpectation(DiagnosticDescriptors.MemberMustReturnStringOrByteArray) { IsExpected = true }, DiagnosticExpectation.NoOthers],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -107,7 +107,7 @@ internal sealed class GeneralCompressAnalyzerTestData : IEnumerable<TheoryDataRo
                     public static partial string? GetValue();
                 }
                 """,
-                Expectations = [new DiagnosticExpectation(DiagnosticDescriptors.MemberMustReturnStringOrByteArray) { IsExpected = true }],
+                Expectations = [new DiagnosticExpectation(DiagnosticDescriptors.MemberMustReturnStringOrByteArray) { IsExpected = true }, DiagnosticExpectation.NoOthers],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -127,7 +127,7 @@ internal sealed class GeneralCompressAnalyzerTestData : IEnumerable<TheoryDataRo
                     public static partial string GetData(int value);
                 }
                 """,
-                Expectations = [new DiagnosticExpectation(DiagnosticDescriptors.MethodMustHaveNoParameters) { IsExpected = true }],
+                Expectations = [new DiagnosticExpectation(DiagnosticDescriptors.MethodMustHaveNoParameters) { IsExpected = true }, DiagnosticExpectation.NoOthers],
             })
         {
             Traits = { { "Category", [Category] } },
@@ -147,7 +147,7 @@ internal sealed class GeneralCompressAnalyzerTestData : IEnumerable<TheoryDataRo
                     public static partial string GetText(int value);
                 }
                 """,
-                Expectations = [new DiagnosticExpectation(DiagnosticDescriptors.MethodMustHaveNoParameters) { IsExpected = true }],
+                Expectations = [new DiagnosticExpectation(DiagnosticDescriptors.MethodMustHaveNoParameters) { IsExpected = true }, DiagnosticExpectation.NoOthers],
             })
         {
             Traits = { { "Category", [Category] } },

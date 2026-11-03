@@ -5,7 +5,7 @@
   <Project Path="Gori.CompressedStatics/Gori.CompressedStatics.csproj" />
   <Properties Name="AutomaticVersions" Scope="PostLoad">
     <Property Name="AdvancedSettingsExpanded" Value="True" />
-    <Property Name="AssemblyFileVersionSettings" Value="IncrementOnDemandWithResetOnIncrease.IncrementOnDemandWithResetOnIncrease.IncrementOnDemand.DateStamp" />
+    <Property Name="AssemblyFileVersionSettings" Value="IncrementOnDemandWithResetOnIncrease.IncrementOnDemandWithResetOnIncrease.IncrementOnDemandWithResetOnIncrease.DateStamp" />
     <Property Name="AssemblyInfoVersionType" Value="SettingsVersion" />
     <Property Name="AssemblyVersionSettings" Value="IncrementOnDemandWithResetOnIncrease.IncrementOnDemandWithResetOnIncrease.IncrementOnDemandWithResetOnIncrease.None" />
     <Property Name="InheritWinAppVersionFrom" Value="None" />

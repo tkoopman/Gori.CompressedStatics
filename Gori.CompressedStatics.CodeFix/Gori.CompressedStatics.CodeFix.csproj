@@ -22,8 +22,8 @@
     <IncludeSymbols>false</IncludeSymbols>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <NoPackageAnalysis>true</NoPackageAnalysis>
-    <FileVersion>2.0.0.26295</FileVersion>
-    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.1.0.26307</FileVersion>
+    <AssemblyVersion>2.1.0.0</AssemblyVersion>
     <Version>$(AssemblyVersion)</Version>
   </PropertyGroup>
 
@@ -33,8 +33,8 @@
 
   <ItemGroup>
     <!-- CodeStringBuilder and it's dependency BCL Memory-->
-    <PackageReference Include="Gori.CodeStringBuilder" Version="1.1.2" GeneratePathProperty="true" />
-    <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.13" PrivateAssets="all" GeneratePathProperty="true" />
+    <PackageReference Include="Gori.CodeStringBuilder" Version="1.2.0" GeneratePathProperty="true" />
+    <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.14" PrivateAssets="all" GeneratePathProperty="true" />
   </ItemGroup>
 
   <ItemGroup>

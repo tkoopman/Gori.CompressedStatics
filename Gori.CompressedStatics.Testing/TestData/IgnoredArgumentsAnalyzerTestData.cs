@@ -165,6 +165,7 @@ internal sealed class IgnoredArgumentsAnalyzerTestData : IEnumerable<TheoryDataR
                             new CodeFixExpectation { IsExpected = false, Code = "CompressionAlgorithm.GZip" },
                         ],
                     },
+                    DiagnosticExpectation.NoOthers,
                 ],
             })
         {
@@ -200,6 +201,7 @@ internal sealed class IgnoredArgumentsAnalyzerTestData : IEnumerable<TheoryDataR
                             new CodeFixExpectation { IsExpected = false, Code = "CompressionAlgorithm.GZip" },
                         ],
                     },
+                    DiagnosticExpectation.NoOthers,
                 ],
             })
         {
@@ -239,6 +241,7 @@ internal sealed class IgnoredArgumentsAnalyzerTestData : IEnumerable<TheoryDataR
                             new CodeFixExpectation { IsExpected = false, Code = """[CompressString("hello2", Algorithm = CompressionAlgorithm.GZip)]""" },
                         ],
                     },
+                    DiagnosticExpectation.NoOthers,
                 ],
             })
         {
@@ -272,6 +275,7 @@ internal sealed class IgnoredArgumentsAnalyzerTestData : IEnumerable<TheoryDataR
                             new CodeFixExpectation { IsExpected = false, Code = "LazyThreadSafe" },
                         ],
                     },
+                    DiagnosticExpectation.NoOthers,
                 ],
             })
         {
@@ -305,6 +309,7 @@ internal sealed class IgnoredArgumentsAnalyzerTestData : IEnumerable<TheoryDataR
                             new CodeFixExpectation { IsExpected = false, Code = "OnInit" },
                         ],
                     },
+                    DiagnosticExpectation.NoOthers,
                 ],
             })
         {
@@ -338,6 +343,7 @@ internal sealed class IgnoredArgumentsAnalyzerTestData : IEnumerable<TheoryDataR
                             new CodeFixExpectation { IsExpected = false, Code = "LazyThreadSafe" },
                         ],
                     },
+                    DiagnosticExpectation.NoOthers,
                 ],
             })
         {

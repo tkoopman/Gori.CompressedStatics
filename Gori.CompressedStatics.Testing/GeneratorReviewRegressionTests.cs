@@ -155,7 +155,7 @@ public sealed class GeneratorReviewRegressionTests(ITestOutputHelper output)
     public static TheoryData<string, string> DiagnosticMoveCases
         => [
             new("CompressString(\"invalid base64\")", "byte[]") { Label = "Base64 diagnostic" },
-            new("CompressString(\"payload\", Transformer = \"MissingTransformerForLocationTest\")", "string") { Label = "Transformer loading diagnostic" },
+            new($"CompressString(\"payload\", Transformer = {SymbolDisplay.FormatLiteral(typeof(TypeHelperTests.NoDefaultConstructorTransformer).AssemblyQualifiedName!, true)})", "string") { Label = "Transformer constructor loading diagnostic" },
         ];
 
     [Theory]

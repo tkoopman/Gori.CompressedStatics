@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 
 using Gori.Common.Roslyn;
+using Gori.CompressedStatics.Generators;
 
 using Microsoft.CodeAnalysis;
 
@@ -103,14 +104,8 @@ internal static class AttributeHelper
     /// </summary>
     /// <param name="returnType">The type symbol representing the return type to check.</param>
     /// <returns><c>true</c> if the return type is valid for compression; otherwise, <c>false</c>.</returns>
-    public static bool IsValidReturnType(ITypeSymbol returnType)
-        => returnType is not null
-        && returnType.NullableAnnotation is not NullableAnnotation.Annotated
-        && (returnType.SpecialType == SpecialType.System_String
-            || (returnType is IArrayTypeSymbol arrayTypeSymbol
-                && arrayTypeSymbol.Rank == 1
-                && arrayTypeSymbol.ElementType.NullableAnnotation is not NullableAnnotation.Annotated
-                && arrayTypeSymbol.ElementType.SpecialType == SpecialType.System_Byte));
+    public static bool IsValid(this ReturnType returnType)
+        => returnType is ReturnType.String or ReturnType.ByteArray;
 
     private static bool TryGetConfiguration(
         INamedTypeSymbol type,
@@ -143,7 +138,7 @@ internal static class AttributeHelper
             ImmutableHashSet<string>.Builder builder = ImmutableHashSet.CreateBuilder(StringComparer.Ordinal);
             foreach (TypedConstant value in excludeArgument.Values)
             {
-                if (value.Value is string propertyName && !string.IsNullOrWhiteSpace(propertyName))
+                if (value.Value is string propertyName && !propertyName.IsWhiteSpace())
                 {
                     _ = builder.Add(propertyName);
                 }

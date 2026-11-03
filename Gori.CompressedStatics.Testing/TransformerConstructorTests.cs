@@ -302,11 +302,11 @@ public sealed class TransformerConstructorTests
 
         public string Prefix { get; }
 
-        public bool TryTransform(ICompressionAttributeInfo attribute, Compilation compilation, [NotNullWhen(true)] out string? output, [NotNullWhen(false)] out DiagnosticInfo? diagnostic, CancellationToken cancellationToken)
+        public bool TryTransform(ICompressionAttributeInfo attribute, [NotNullWhen(true)] out string? output, out ImmutableArray<DiagnosticInfo> diagnostics, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             output = Prefix + attribute.SourceValue;
-            diagnostic = null;
+            diagnostics = default;
             return true;
         }
     }
@@ -352,11 +352,11 @@ public sealed class TransformerConstructorTests
     {
         public byte[] Bytes { get; } = bytes;
 
-        public bool TryTransform(ICompressionAttributeInfo attribute, Compilation compilation, [NotNullWhen(true)] out byte[]? output, [NotNullWhen(false)] out DiagnosticInfo? diagnostic, CancellationToken cancellationToken)
+        public bool TryTransform(ICompressionAttributeInfo attribute, [NotNullWhen(true)] out byte[]? output, out ImmutableArray<DiagnosticInfo> diagnostics, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             output = Bytes;
-            diagnostic = null;
+            diagnostics = default;
             return true;
         }
     }

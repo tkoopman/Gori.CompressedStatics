@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 using Gori.Common.Roslyn.Test;
 using Gori.CompressedStatics.Generators;
 
@@ -346,7 +348,7 @@ public sealed class RewriterReviewRegressionTests(ITestOutputHelper output)
         }
 
         Compilation rewritten = await RewriteValidSource(data, options);
-        foreach (string typeName in new[] { "Sample", "Sample+Nested", "Callback" })
+        foreach (string typeName in new[] { "Sample", "Callback" })
         {
             INamedTypeSymbol type = Assert.IsType<INamedTypeSymbol>(rewritten.GetTypeByMetadataName(typeName), exactMatch: false);
             AttributeData[] attributes = [.. type.GetAttributes()];
@@ -354,6 +356,16 @@ public sealed class RewriterReviewRegressionTests(ITestOutputHelper output)
             _ = Assert.Single(attributes, attribute => attribute.AttributeClass?.ToDisplayString() == "Microsoft.CodeAnalysis.EmbeddedAttribute");
             Assert.Equal(generatedAttribute.StartsWith("RealGC", StringComparison.Ordinal) ? 2 : 4, attributes.Length);
         }
+
+        INamedTypeSymbol nested = Assert.IsType<INamedTypeSymbol>(rewritten.GetTypeByMetadataName("Sample+Nested"), exactMatch: false);
+        AttributeData[] nestedAttributes = [.. nested.GetAttributes()];
+        Assert.Equal(2, nestedAttributes.Length);
+        string expectedGenerated = generatedAttribute.StartsWith("RealGC", StringComparison.Ordinal)
+            ? "System.CodeDom.Compiler.GeneratedCodeAttribute" : "Custom.GeneratedCodeAttribute";
+        string expectedEmbedded = generatedAttribute.StartsWith("RealGC", StringComparison.Ordinal)
+            ? "Microsoft.CodeAnalysis.EmbeddedAttribute" : "Custom.EmbeddedAttribute";
+        _ = Assert.Single(nestedAttributes, attribute => attribute.AttributeClass?.ToDisplayString() == expectedGenerated);
+        _ = Assert.Single(nestedAttributes, attribute => attribute.AttributeClass?.ToDisplayString() == expectedEmbedded);
 
         string transformed = Assert.Single(rewritten.SyntaxTrees).ToString();
         Compilation repeated = await RewriteValidSource(new MockSourceData { SourceCode = transformed }, options);
@@ -381,16 +393,16 @@ public sealed class RewriterReviewRegressionTests(ITestOutputHelper output)
             SourceValue = data.SourceCode,
         };
         var transformer = new CSharpRewriterTransformer(options);
-        bool success = transformer.TryTransform(input, compilation, out string? transformed, out DiagnosticInfo? diagnostic,
+        bool success = transformer.TryTransform(input, compilation, out string? transformed, out ImmutableArray<DiagnosticInfo> diagnostics,
             TestContext.Current.CancellationToken);
         output.WriteLine(transformed ?? "<No Code>");
-        if (diagnostic is not null)
+        if (!diagnostics.IsDefaultOrEmpty)
         {
-            output.Write([diagnostic.ToDiagnostic(Location.None)]);
+            output.Write(diagnostics.Select(item => item.ToDiagnostic(Location.None)));
         }
 
         Assert.True(success);
-        Assert.Null(diagnostic);
+        Assert.True(diagnostics.IsDefaultOrEmpty);
         Assert.NotNull(transformed);
         SyntaxTree rewrittenTree = CSharpSyntaxTree.ParseText(transformed, (CSharpParseOptions)tree.Options,
             path: tree.FilePath, cancellationToken: TestContext.Current.CancellationToken);

@@ -23,7 +23,10 @@ public sealed class CompressFileAttributeAdditionalFileCodeFixProvider : CodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds
-        => [DiagnosticDescriptors.SourceFileMustBeAdditionalFile.Id];
+        => [
+            DiagnosticDescriptors.SourceFileMustBeAdditionalFile.Id,
+            DiagnosticDescriptors.MSBuildProjectDirectoryNotVisible.Id,
+        ];
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
@@ -184,7 +187,7 @@ public sealed class CompressFileAttributeAdditionalFileCodeFixProvider : CodeFix
                     || currentAttribute.ArgumentList is null
                     || currentAttribute.ArgumentList.Arguments.Count < 1
                     || !semanticModel.GetConstantValue(currentAttribute.ArgumentList.Arguments[0].Expression).TryGetValueAsString(out filePath)
-                    || string.IsNullOrWhiteSpace(filePath))
+                    || filePath.IsWhiteSpace())
                 {
                     continue;
                 }

@@ -92,7 +92,7 @@ internal static class TypeEmitter
         List<(CompressAttributeInfo Member, int Index, int Length)> members,
         CancellationToken cancellationToken)
     {
-        StringBuilder ctorBody = new();
+        CodeStringBuilder.CodeStringBuilder ctorBody = new();
         bool allRaw = storage is StorageKind.Raw || compressedData.Length == 0;
 
         if (!allRaw)
@@ -101,8 +101,8 @@ internal static class TypeEmitter
                        .ForceBlankLine();
 
             string decompressCall = Helper.BuildDecompressCall(ReturnType.ByteArray, storage, Const.TarCompressedFieldName);
-            _ = ctorBody.AppendLine($"byte[] {Const.DecompressedTarFieldName} = {decompressCall};")
-                        .AppendLine();
+            _ = ctorBody.WriteLine($"byte[] {Const.DecompressedTarFieldName} = {decompressCall};")
+                        .ForceBlankLine();
         }
 
         foreach ((CompressAttributeInfo member, int index, int length) in members)
@@ -127,13 +127,13 @@ internal static class TypeEmitter
                 ? BuildDirectLiteral(member, tarData, index, length)
                 : BuildSegmentExpression(member, index, length, Const.DecompressedTarFieldName);
 
-            _ = ctorBody.AppendLine($"{fieldName} = {valueExpression};");
+            _ = ctorBody.WriteLine($"{fieldName} = {valueExpression};");
         }
 
         string typeName = tar.Type.Declarations.IsDefaultOrEmpty ? string.Empty : StripTypeParameters(tar.Type.Declarations[^1].Name);
         _ = builder.WriteLine($"static {Helper.EscapeIdentifier(typeName)}()")
                    .WriteLine("{")
-                   .WriteLine(ctorBody.ToString())
+                   .Write(ctorBody)
                    .WriteLine("}");
     }
 

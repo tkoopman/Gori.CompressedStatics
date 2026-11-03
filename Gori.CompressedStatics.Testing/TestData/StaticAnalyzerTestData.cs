@@ -39,6 +39,7 @@ internal sealed class StaticAnalyzerTestData : IEnumerable<TheoryDataRow<MockSou
                         ],
                     },
                     new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBeStatic) { IsExpected = true, Message = $"[{Const.CompressStringAttributeShortName}]" },
+                    DiagnosticExpectation.NoOthers,
                 ],
             })
         {
@@ -73,6 +74,7 @@ internal sealed class StaticAnalyzerTestData : IEnumerable<TheoryDataRow<MockSou
                         ],
                     },
                     new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBeStatic) { IsExpected = true, Message = $"[{Const.CompressStringAttributeShortName}]" },
+                    DiagnosticExpectation.NoOthers,
                 ],
             })
         {
@@ -107,6 +109,7 @@ internal sealed class StaticAnalyzerTestData : IEnumerable<TheoryDataRow<MockSou
                         ],
                     },
                     new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBeStatic) { IsExpected = true, Message = $"[{Const.CompressFileAttributeShortName}]" },
+                    DiagnosticExpectation.NoOthers,
                 ],
             })
         {
@@ -146,6 +149,7 @@ internal sealed class StaticAnalyzerTestData : IEnumerable<TheoryDataRow<MockSou
                         ],
                     },
                     new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBeStatic) { IsExpected = true, Message = $"[{Const.CompressStringAttributeShortName}]" },
+                    DiagnosticExpectation.NoOthers,
                 ],
             })
         {

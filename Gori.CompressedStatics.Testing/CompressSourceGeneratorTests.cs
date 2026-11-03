@@ -32,7 +32,7 @@ public sealed class CompressSourceGeneratorTests(ITestOutputHelper output)
         await MockProject.AssertGeneratorTest<CompressStaticsGenerator>(new MockSourceData
         {
             SourceCode = source,
-            Expectations = [FileExpectation.NoOthers],
+            Expectations = [FileExpectation.NoOthers, DiagnosticExpectation.NoOthers],
         }, output);
     }
 

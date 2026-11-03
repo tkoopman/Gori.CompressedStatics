@@ -16,11 +16,10 @@ public sealed class TransformerSelectorTests
     [MemberData(nameof(RewriterSelectors))]
     public void RewriterCanBeSelectedWithOrWithoutSuffix(string selector)
     {
-        Assert.True(ValueTransformerHelper.IsValidTransformerValue(selector, out string? type, out string? member));
+        Assert.Equal(Generators.TransformerType.StringCompilation, ValueTransformerHelper.IsValidTransformerValue(selector, Generators.ReturnType.String, out string? type, out string? member, out ValueTransformerHelper.Error error));
         Assert.NotNull(type);
-        Assert.True(ValueTransformerHelper.TryGetTransformer(type, member, out IStringTransformer? transformer, out ValueTransformerHelper.Error error));
+        Assert.Null(member);
         Assert.Equal(ValueTransformerHelper.Error.None, error);
-        _ = Assert.IsType<CSharpRewriterTransformer>(transformer);
     }
 
     public static TheoryData<string> Base64Selectors
@@ -35,7 +34,7 @@ public sealed class TransformerSelectorTests
     [MemberData(nameof(Base64Selectors))]
     public void Base64ShorthandStillPrefersSingleton(string selector)
     {
-        Assert.True(ValueTransformerHelper.IsValidTransformerValue(selector, out string? type, out string? member));
+        Assert.True(ValueTransformerHelper.IsValidTransformerValue(selector, Generators.ReturnType.ByteArray, out string? type, out string? member, out _).IsValid());
         Assert.NotNull(type);
         Assert.True(ValueTransformerHelper.TryGetTransformer(type, member, out IBinaryTransformer? transformer, out ValueTransformerHelper.Error error));
         Assert.Equal(ValueTransformerHelper.Error.None, error);
@@ -55,30 +54,28 @@ public sealed class TransformerSelectorTests
     {
         string typeName = typeof(SelectorProviderTransformer).FullName!;
         string selector = $"{typeName[..^"Transformer".Length]}, {typeof(SelectorProviderTransformer).Assembly.GetName().Name}::Selected";
-        Assert.True(ValueTransformerHelper.IsValidTransformerValue(selector, out string? type, out string? member));
+        Assert.Equal(Generators.TransformerType.StringCompilation, ValueTransformerHelper.IsValidTransformerValue(selector, Generators.ReturnType.String, out string? type, out string? member, out ValueTransformerHelper.Error error));
         Assert.NotNull(type);
-        Assert.True(ValueTransformerHelper.TryGetTransformer(type, member, out IStringTransformer? transformer, out ValueTransformerHelper.Error error));
+        Assert.Equal(nameof(SelectorProviderTransformer.Selected), member);
         Assert.Equal(ValueTransformerHelper.Error.None, error);
-        Assert.Same(SelectorProviderTransformer.Selected, transformer);
     }
 
     [Fact]
     public void AmbiguousShorthandIsRejected()
     {
-        Assert.False(ValueTransformerHelper.TryGetTransformer("AmbiguousSelector", null, out IStringTransformer? transformer, out ValueTransformerHelper.Error error));
+        Assert.Equal(Generators.TransformerType.NotFound, ValueTransformerHelper.IsValidTransformerValue("AmbiguousSelector", Generators.ReturnType.String, out _, out _, out ValueTransformerHelper.Error error));
         Assert.Equal(ValueTransformerHelper.Error.IsAmbiguous, error);
-        Assert.Null(transformer);
     }
 
     public sealed class Base64;
 
-    public sealed class ExactSelector : CSharpRewriterTransformer;
+    public sealed class ExactSelector : TypeHelperTests.StringTransformer;
 
-    public sealed class ExactSelectorTransformer : CSharpRewriterTransformer;
+    public sealed class ExactSelectorTransformer : TypeHelperTests.StringTransformer;
 
     public static class SelectorProviderTransformer
     {
-        public static readonly IStringTransformer Selected = new CSharpRewriterTransformer();
+        public static readonly IStringCompilationTransformer Selected = new CSharpRewriterTransformer();
     }
 
     public static class FirstProvider

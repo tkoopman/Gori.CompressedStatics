@@ -21,8 +21,8 @@
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <IncludeSymbols>false</IncludeSymbols>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
-    <FileVersion>2.0.0.26295</FileVersion>
-    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.1.0.26307</FileVersion>
+    <AssemblyVersion>2.1.0.0</AssemblyVersion>
     <Version>$(AssemblyVersion)</Version>
   </PropertyGroup>
 
@@ -39,12 +39,12 @@
 
   <ItemGroup>
     <!-- CodeStringBuilder and it's dependency BCL Memory-->
-    <PackageReference Include="Gori.CodeStringBuilder" Version="1.1.2" PrivateAssets="all" />
-    <PackageReference Include="Gori.Common.Roslyn" Version="1.0.3">
+    <PackageReference Include="Gori.CodeStringBuilder" Version="1.2.0" PrivateAssets="all" />
+    <PackageReference Include="Gori.Common.Roslyn" Version="1.0.4">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.13" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.14" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
@@ -78,7 +78,14 @@
     <MakeDir Directories="$(TempZipDir)" />
 
     <!-- 2. Copy the source files to the temp directory -->
-    <Copy SourceFiles="$(ProjectDir)AttributeMarkers.cs" DestinationFolder="$(TempZipDir)" />
+    <Copy SourceFiles="$(ProjectDir)CompressionAlgorithm.cs" DestinationFolder="$(TempZipDir)" />
+    <Copy SourceFiles="$(ProjectDir)CompressionCacheMode.cs" DestinationFolder="$(TempZipDir)" />
+    <Copy SourceFiles="$(ProjectDir)CompressStringAttribute.cs" DestinationFolder="$(TempZipDir)" />
+    <Copy SourceFiles="$(ProjectDir)CompressFileAttribute.cs" DestinationFolder="$(TempZipDir)" />
+    <Copy SourceFiles="$(ProjectDir)TarCompressAttribute.cs" DestinationFolder="$(TempZipDir)" />
+    <Copy SourceFiles="$(ProjectDir)CSharpRewriterIgnoreAttribute.cs" DestinationFolder="$(TempZipDir)" />
+    <Copy SourceFiles="$(ProjectDir)CSharpRewriterOptions.cs" DestinationFolder="$(TempZipDir)" />
+    <Copy SourceFiles="$(ProjectDir)CSharpRewriterTypeMappingAttribute.cs" DestinationFolder="$(TempZipDir)" />
     <Copy SourceFiles="$(ProjectDir)Templates\DecompressStatics.cs" DestinationFolder="$(TempZipDir)" />
 
     <!-- 3. Compress the directory into the intermediate output folder -->
@@ -94,5 +101,8 @@
 
     <Message Importance="high" Text="Successfully compressed $(TempZipDir) into $(ResourceZipFile)" />
   </Target>
+  <ItemGroup>
+    <EditorConfigFiles Remove="E:\DEVELOPMENT\Gori.CompressedStatics\Gori.CompressedStatics\.editorconfig" />
+  </ItemGroup>
 
 </Project>

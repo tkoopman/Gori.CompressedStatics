@@ -28,8 +28,8 @@
     <EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
     <EnableNETAnalyzers>True</EnableNETAnalyzers>
     <AnalysisLevel>latest-all</AnalysisLevel>
-    <FileVersion>2.0.0.26295</FileVersion>
-    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.1.0.26307</FileVersion>
+    <AssemblyVersion>2.1.0.0</AssemblyVersion>
     <Version>$(AssemblyVersion)</Version>
   </PropertyGroup>
 
@@ -54,6 +54,14 @@
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
+    <None Include="..\skills\compressedstatics\SKILL.md">
+      <Pack>True</Pack>
+      <PackagePath>skills\compressedstatics\</PackagePath>
+    </None>
+    <None Include="..\skills\csharp-rewriter\SKILL.md">
+      <Pack>True</Pack>
+      <PackagePath>skills\csharp-rewriter\</PackagePath>
+    </None>
   </ItemGroup>
 
   <ItemGroup>
@@ -63,8 +71,8 @@
 
   <ItemGroup>
     <!-- CodeStringBuilder and it's dependency BCL Memory-->
-    <PackageReference Include="Gori.CodeStringBuilder" Version="1.1.2" PrivateAssets="all" GeneratePathProperty="true" />
-    <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.13" PrivateAssets="all" GeneratePathProperty="true" />
+    <PackageReference Include="Gori.CodeStringBuilder" Version="1.2.0" PrivateAssets="all" GeneratePathProperty="true" />
+    <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.14" PrivateAssets="all" GeneratePathProperty="true" />
   </ItemGroup>
 
   <Target Name="_AddAnalyzersToOutput">

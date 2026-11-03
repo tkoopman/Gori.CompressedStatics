@@ -1,6 +1,8 @@
+using Gori.CompressedStatics.Generators;
+
 using Microsoft.CodeAnalysis;
 
-namespace Gori.CompressedStatics.Generators;
+namespace Gori.CompressedStatics;
 
 /// <summary>
 /// Extracts the primitive, symbol-free data the pipeline needs from Roslyn symbols. All symbol
@@ -22,11 +24,22 @@ internal static class SymbolExtraction
             _ => null,
         };
 
-        return returnType is null ? ReturnType.Unsupported
-            : returnType.SpecialType == SpecialType.System_String ? ReturnType.String
-            : returnType is IArrayTypeSymbol { Rank: 1, ElementType.SpecialType: SpecialType.System_Byte } ? ReturnType.ByteArray
-            : ReturnType.Unsupported;
+        return GetReturnType(returnType);
     }
+
+    /// <summary>
+    /// Determines the return type.
+    /// </summary>
+    /// <param name="returnType">The type symbol representing the return type to check.</param>
+    /// <returns>ReturnType value.</returns>
+    public static ReturnType GetReturnType(ITypeSymbol? returnType)
+        => returnType is null || returnType.NullableAnnotation is NullableAnnotation.Annotated
+            ? ReturnType.Unsupported
+            : returnType.SpecialType == SpecialType.System_String
+                ? ReturnType.String
+                : returnType is IArrayTypeSymbol { Rank: 1, ElementType.SpecialType: SpecialType.System_Byte, ElementType.NullableAnnotation: not NullableAnnotation.Annotated }
+                    ? ReturnType.ByteArray
+                    : ReturnType.Unsupported;
 
     /// <summary>
     /// Classifies the member as a property or a method.

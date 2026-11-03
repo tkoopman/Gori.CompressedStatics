@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
-    <FileVersion>1.0.1.26295</FileVersion>
+    <FileVersion>1.0.1.26307</FileVersion>
     <AssemblyVersion>1.0.1.0</AssemblyVersion>
   </PropertyGroup>
 
@@ -14,7 +14,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Gori.Common.Roslyn.Test" Version="1.0.3" />
+    <PackageReference Include="Gori.Common.Roslyn.Test" Version="1.0.6" />
     <PackageReference Include="Microsoft.CodeAnalysis" Version="5.9.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.9.0" />

@@ -1,8 +1,7 @@
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 
 using Gori.CompressedStatics.Generators;
-
-using Microsoft.CodeAnalysis;
 
 namespace Gori.CompressedStatics.Testing;
 
@@ -57,12 +56,53 @@ public class TypeHelperTests
     [MemberData(nameof(StringTransformers))]
     public void ValidStringTransformerIsResolved(string selector)
     {
-        Assert.True(ValueTransformerHelper.IsValidTransformerValue(selector, out string? type, out string? member));
+        Assert.True(ValueTransformerHelper.IsValidTransformerValue(selector, ReturnType.String, out string? type, out string? member, out _).IsValid());
         Assert.NotNull(type);
         Assert.True(ValueTransformerHelper.TryGetTransformer(type, member, out IStringTransformer? transformer, out ValueTransformerHelper.Error error));
         Assert.Equal(ValueTransformerHelper.Error.None, error);
         Assert.NotNull(transformer);
         AssertStringTransform(transformer);
+    }
+
+    public static TheoryData<string, ReturnType, string> OutputClassificationCases
+    {
+        get
+        {
+            TheoryData<string, ReturnType, string> data = [];
+            Add(typeof(TransformerGeneratorTests.DiagnosticTransformer), TransformerType.String, TransformerType.Binary);
+            Add(typeof(TransformerGeneratorTests.CompilationTransformer), TransformerType.StringCompilation, TransformerType.BinaryCompilation);
+            Add(typeof(MixedOutputTransformer), TransformerType.String, TransformerType.BinaryCompilation);
+            Add(typeof(ReverseMixedOutputTransformer), TransformerType.StringCompilation, TransformerType.Binary);
+            return data;
+
+            void Add(Type transformer, TransformerType stringType, TransformerType binaryType)
+            {
+                Type provider = typeof(OutputProvider<>).MakeGenericType(transformer);
+                string[] selectors = [
+                    transformer.AssemblyQualifiedName!,
+                    $"{provider.AssemblyQualifiedName}::Field",
+                    $"{provider.AssemblyQualifiedName}::Property",
+                ];
+                string[] labels = ["Constructor", "Field", "Property"];
+                for (int index = 0; index < selectors.Length; index++)
+                {
+                    data.Add(new(selectors[index], ReturnType.String, stringType.ToString()) { Label = $"{transformer.Name} {labels[index]} string" });
+                    data.Add(new(selectors[index], ReturnType.ByteArray, binaryType.ToString()) { Label = $"{transformer.Name} {labels[index]} binary" });
+                }
+            }
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(OutputClassificationCases))]
+    public void ClassificationUsesRequestedOutput(string selector, ReturnType returnType, string expectedType)
+    {
+        TransformerType result = ValueTransformerHelper.IsValidTransformerValue(selector, returnType, out string? type, out string? member, out ValueTransformerHelper.Error error);
+
+        Assert.Equal(expectedType, result.ToString());
+        Assert.Equal(ValueTransformerHelper.Error.None, error);
+        Assert.NotNull(type);
+        Assert.Equal(selector.Contains("::", StringComparison.Ordinal) ? selector.Split("::")[1] : null, member);
     }
 
     [Fact]
@@ -79,7 +119,7 @@ public class TypeHelperTests
     {
         string selector = $"{typeof(Base64Transformer).AssemblyQualifiedName}::{nameof(Base64Transformer.Instance)}";
 
-        Assert.True(ValueTransformerHelper.IsValidTransformerValue(selector, out string? type, out string? member));
+        Assert.True(ValueTransformerHelper.IsValidTransformerValue(selector, ReturnType.ByteArray, out string? type, out string? member, out _).IsValid());
         Assert.NotNull(type);
         Assert.True(ValueTransformerHelper.TryGetTransformer(type, member, out IBinaryTransformer? transformer, out ValueTransformerHelper.Error error));
         Assert.Equal(ValueTransformerHelper.Error.None, error);
@@ -92,7 +132,7 @@ public class TypeHelperTests
     {
         string selector = $"{typeof(TransformerProvider).AssemblyQualifiedName}::{nameof(TransformerProvider.StringProperty)}";
 
-        Assert.True(ValueTransformerHelper.IsValidTransformerValue(selector, out string? type, out string? member));
+        Assert.True(ValueTransformerHelper.IsValidTransformerValue(selector, ReturnType.String, out string? type, out string? member, out _).IsValid());
         Assert.NotNull(type);
         Assert.True(ValueTransformerHelper.TryGetTransformer(type, member, out IStringTransformer? transformer, out ValueTransformerHelper.Error error));
         Assert.Equal(ValueTransformerHelper.Error.None, error);
@@ -122,11 +162,11 @@ public class TypeHelperTests
 
         if (expectedError == nameof(ValueTransformerHelper.Error.InvalidFormat))
         {
-            Assert.False(ValueTransformerHelper.IsValidTransformerValue(selector, out _, out _));
+            Assert.False(ValueTransformerHelper.IsValidTransformerValue(selector, ReturnType.String, out _, out _, out _).IsValid());
             return;
         }
 
-        Assert.True(ValueTransformerHelper.IsValidTransformerValue(selector, out string? type, out string? member));
+        _ = ValueTransformerHelper.IsValidTransformerValue(selector, ReturnType.String, out string? type, out string? member, out _);
         Assert.NotNull(type);
         Assert.False(ValueTransformerHelper.TryGetTransformer(type, member, out IStringTransformer? transformer, out ValueTransformerHelper.Error error));
         Assert.Equal(expectedError, error.ToString());
@@ -137,7 +177,7 @@ public class TypeHelperTests
     [MemberData(nameof(ThrowingMembers))]
     public void MemberFailureDoesNotEscapeTryGetTransformer(string selector)
     {
-        Assert.True(ValueTransformerHelper.IsValidTransformerValue(selector, out string? type, out string? member));
+        Assert.True(ValueTransformerHelper.IsValidTransformerValue(selector, ReturnType.String, out string? type, out string? member, out _).IsValid());
         Assert.NotNull(type);
         Assert.False(ValueTransformerHelper.TryGetTransformer(type, member, out IStringTransformer? transformer, out ValueTransformerHelper.Error error));
         Assert.Equal(ValueTransformerHelper.Error.ExceptionThrown, error);
@@ -148,7 +188,8 @@ public class TypeHelperTests
     public void MalformedAssemblyIdentityIsRejectedWithoutThrowing()
     {
         const string selector = "System.String, Test, Version=not-a-version";
-        Assert.True(ValueTransformerHelper.IsValidTransformerValue(selector, out string? type, out string? member));
+        Assert.Equal(TransformerType.NotFound, ValueTransformerHelper.IsValidTransformerValue(selector, ReturnType.String, out string? type, out string? member, out ValueTransformerHelper.Error resolutionError));
+        Assert.Equal(ValueTransformerHelper.Error.ExceptionThrown, resolutionError);
         Assert.NotNull(type);
         Assert.False(ValueTransformerHelper.TryGetTransformer(type, member, out IStringTransformer? transformer, out ValueTransformerHelper.Error error));
         Assert.Equal(ValueTransformerHelper.Error.ExceptionThrown, error);
@@ -167,7 +208,7 @@ public class TypeHelperTests
     [MemberData(nameof(PaddedSelectors))]
     public void SelectorSegmentsAreTrimmed(string selector)
     {
-        Assert.True(ValueTransformerHelper.IsValidTransformerValue(selector, out string? type, out string? member));
+        Assert.True(ValueTransformerHelper.IsValidTransformerValue(selector, ReturnType.String, out string? type, out string? member, out _).IsValid());
         Assert.NotNull(type);
         Assert.True(ValueTransformerHelper.TryGetTransformer(type, member, out IStringTransformer? transformer, out ValueTransformerHelper.Error error));
         Assert.Equal(ValueTransformerHelper.Error.None, error);
@@ -189,7 +230,9 @@ public class TypeHelperTests
     {
         string selector = $"{typeof(SideEffectProvider).AssemblyQualifiedName}::{nameof(SideEffectProvider.Transformer)}";
 
-        Assert.True(ValueTransformerHelper.IsValidTransformerValue(selector, out string? type, out string? member));
+        Assert.Equal(TransformerType.NotFound, ValueTransformerHelper.IsValidTransformerValue(selector, ReturnType.String, out string? type, out string? member, out ValueTransformerHelper.Error resolutionError));
+        Assert.Equal(ValueTransformerHelper.Error.MemberNotAssignable, resolutionError);
+        Assert.Equal(0, SideEffectProvider.GetterCalls);
         Assert.NotNull(type);
         Assert.False(ValueTransformerHelper.TryGetTransformer(type, member, out IStringTransformer? transformer, out ValueTransformerHelper.Error error));
         Assert.Equal(ValueTransformerHelper.Error.MemberNotAssignable, error);
@@ -238,7 +281,7 @@ public class TypeHelperTests
     {
         string selector = $"{typeof(InterfaceSingleton).AssemblyQualifiedName}::Instance";
 
-        Assert.True(ValueTransformerHelper.IsValidTransformerValue(selector, out string? type, out string? member));
+        Assert.True(ValueTransformerHelper.IsValidTransformerValue(selector, ReturnType.String, out string? type, out string? member, out _).IsValid());
         Assert.NotNull(type);
         Assert.True(ValueTransformerHelper.TryGetTransformer(type, member, out IStringTransformer? transformer, out ValueTransformerHelper.Error error));
         Assert.Equal(ValueTransformerHelper.Error.None, error);
@@ -317,38 +360,57 @@ public class TypeHelperTests
 
     private static void AssertStringTransform(IStringTransformer transformer)
     {
-        Assert.True(transformer.TryTransform(CreateInput("payload", ReturnType.String), Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("TransformerTest"), out string? output, out DiagnosticInfo? diagnostic, TestContext.Current.CancellationToken));
-        Assert.Null(diagnostic);
+        Assert.True(transformer.TryTransform(CreateInput("payload", ReturnType.String), out string? output, out ImmutableArray<DiagnosticInfo> diagnostics, TestContext.Current.CancellationToken));
+        Assert.True(diagnostics.IsDefaultOrEmpty);
         Assert.Equal("processed:payload", output);
     }
 
     private static void AssertBinaryTransform(IBinaryTransformer transformer)
     {
-        Assert.True(transformer.TryTransform(CreateInput("AQID", ReturnType.ByteArray), Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("TransformerTest"), out byte[]? output, out DiagnosticInfo? diagnostic, TestContext.Current.CancellationToken));
-        Assert.Null(diagnostic);
+        Assert.True(transformer.TryTransform(CreateInput("AQID", ReturnType.ByteArray), out byte[]? output, out ImmutableArray<DiagnosticInfo> diagnostics, TestContext.Current.CancellationToken));
+        Assert.True(diagnostics.IsDefaultOrEmpty);
         Assert.Equal(new byte[] { 1, 2, 3 }, output);
     }
 
     public class StringTransformer : IStringTransformer
     {
-        public bool TryTransform(ICompressionAttributeInfo attribute, Compilation compilation, [NotNullWhen(true)] out string? output, [NotNullWhen(false)] out DiagnosticInfo? diagnostic, CancellationToken cancellationToken)
+        public bool TryTransform(ICompressionAttributeInfo attribute, [NotNullWhen(true)] out string? output, out ImmutableArray<DiagnosticInfo> diagnostics, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             output = "processed:" + attribute.SourceValue;
-            diagnostic = null;
+            diagnostics = default;
             return true;
         }
+    }
+
+    public static class OutputProvider<T> where T : new()
+    {
+        public static readonly T Field = new();
+
+        public static T Property { get; } = new();
+    }
+
+    public sealed class MixedOutputTransformer : StringTransformer, IBinaryCompilationTransformer
+    {
+        public bool TryTransform(ICompressionAttributeInfo attribute, Microsoft.CodeAnalysis.Compilation compilation, [NotNullWhen(true)] out byte[]? output, out ImmutableArray<DiagnosticInfo> diagnostics, CancellationToken cancellationToken)
+            => Base64Transformer.Instance.TryTransform(attribute, out output, out diagnostics, cancellationToken);
+    }
+
+    public sealed class ReverseMixedOutputTransformer : CSharpRewriterTransformer, IBinaryTransformer
+    {
+        public bool TryTransform(ICompressionAttributeInfo attribute, [NotNullWhen(true)] out byte[]? output, out ImmutableArray<DiagnosticInfo> diagnostics, CancellationToken cancellationToken)
+            => Base64Transformer.Instance.TryTransform(attribute, out output, out diagnostics, cancellationToken);
     }
 
     public sealed class ThrowingConstructorTransformer : StringTransformer, IBinaryTransformer
     {
         public ThrowingConstructorTransformer() => throw new InvalidOperationException("Constructor failed.");
 
-        bool IBinaryTransformer.TryTransform(ICompressionAttributeInfo attribute, Compilation compilation, [NotNullWhen(true)] out byte[]? output, [NotNullWhen(false)] out DiagnosticInfo? diagnostic, CancellationToken cancellationToken)
+        bool IBinaryTransformer.TryTransform(ICompressionAttributeInfo attribute, [NotNullWhen(true)] out byte[]? output, out ImmutableArray<DiagnosticInfo> diagnostics, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             output = [];
-            diagnostic = null;
+            diagnostics = default;
             return true;
         }
     }
@@ -383,8 +445,8 @@ public class TypeHelperTests
 
     public struct StructTransformer : IStringTransformer
     {
-        public readonly bool TryTransform(ICompressionAttributeInfo attribute, Compilation compilation, [NotNullWhen(true)] out string? output, [NotNullWhen(false)] out DiagnosticInfo? diagnostic, CancellationToken cancellationToken)
-            => new StringTransformer().TryTransform(attribute, compilation, out output, out diagnostic, cancellationToken);
+        public readonly bool TryTransform(ICompressionAttributeInfo attribute, [NotNullWhen(true)] out string? output, out ImmutableArray<DiagnosticInfo> diagnostics, CancellationToken cancellationToken)
+            => new StringTransformer().TryTransform(attribute, out output, out diagnostics, cancellationToken);
     }
 
     internal static class GenericProvider<T>

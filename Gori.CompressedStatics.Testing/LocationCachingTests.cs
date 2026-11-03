@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 
@@ -203,12 +204,12 @@ public sealed class LocationCachingTests
 
     public sealed class LocationTransformer : IStringTransformer
     {
-        public bool TryTransform(ICompressionAttributeInfo attribute, Compilation compilation,
-            [NotNullWhen(true)] out string? output, [NotNullWhen(false)] out DiagnosticInfo? diagnostic, CancellationToken cancellationToken)
+        public bool TryTransform(ICompressionAttributeInfo attribute,
+            [NotNullWhen(true)] out string? output, out ImmutableArray<DiagnosticInfo> diagnostics, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             output = attribute.Location.GetLineSpan().StartLinePosition.Line.ToString(CultureInfo.InvariantCulture);
-            diagnostic = null;
+            diagnostics = default;
             return true;
         }
     }

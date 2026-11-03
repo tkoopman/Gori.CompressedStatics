@@ -97,6 +97,7 @@ internal sealed class GenericTypeAnalyzerTestData : IEnumerable<TheoryDataRow<Mo
                         IsExpected = true,
                         Message = Const.CompressStringAttributeShortName,
                     },
+                    DiagnosticExpectation.NoOthers,
                 ],
             })
         {
@@ -124,6 +125,7 @@ internal sealed class GenericTypeAnalyzerTestData : IEnumerable<TheoryDataRow<Mo
                         IsExpected = true,
                         Message = Const.CompressFileAttributeShortName,
                     },
+                    DiagnosticExpectation.NoOthers,
                 ],
             })
         {
@@ -151,6 +153,7 @@ internal sealed class GenericTypeAnalyzerTestData : IEnumerable<TheoryDataRow<Mo
                         IsExpected = true,
                         Message = Const.CompressStringAttributeShortName,
                     },
+                    DiagnosticExpectation.NoOthers,
                 ],
             })
         {
@@ -178,6 +181,7 @@ internal sealed class GenericTypeAnalyzerTestData : IEnumerable<TheoryDataRow<Mo
                         IsExpected = true,
                         Message = Const.CompressStringAttributeShortName,
                     },
+                    DiagnosticExpectation.NoOthers,
                 ],
             })
         {
@@ -204,6 +208,7 @@ internal sealed class GenericTypeAnalyzerTestData : IEnumerable<TheoryDataRow<Mo
                         IsExpected = true,
                         Message = Const.TarCompressAttributeShortName,
                     },
+                    DiagnosticExpectation.NoOthers,
                 ],
             })
         {

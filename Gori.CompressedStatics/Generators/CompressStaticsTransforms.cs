@@ -179,6 +179,8 @@ internal static class CompressStaticsTransforms
             cancellationToken.ThrowIfCancellationRequested();
         }
 
+        filteredMembers.Sort(static (left, right) => StringComparer.Ordinal.Compare(left.MemberName, right.MemberName));
+
         return new TarMembers(
             member.Type,
             member.Algorithm,
@@ -239,27 +241,43 @@ internal static class CompressStaticsTransforms
         }
 
         string? transformerSelector = attribute.GetNamedArgumentAsString(nameof(CompressFileAttribute.Transformer));
-        string? transformerType = null;
-        string? transformerMember = null;
         ImmutableArray<TransformerArgument> transformerArguments = default;
 
+        TransformerType transformerType = ValueTransformerHelper.IsValidTransformerValue(transformerSelector, returnType, out string? transformerName, out string? transformerMember, out _);
         bool validAttribute = returnType is not ReturnType.Unsupported
-            && ValueTransformerHelper.IsValidTransformerValue(transformerSelector, out transformerType, out transformerMember);
+            && transformerType switch
+            {
+                TransformerType.None => true,
+                TransformerType.String or TransformerType.StringCompilation => returnType is ReturnType.String,
+                TransformerType.Binary or TransformerType.BinaryCompilation => returnType is ReturnType.ByteArray,
+                TransformerType.Compilation => false,
+                TransformerType.NotFound => false,
+                _ => false,
+            };
 
-        if (transformerType is not null
+        if (transformerName is not null
             && transformerMember is null
             && attribute.TryGetNamedArgument(nameof(CompressFileAttribute.TransformerArguments), out TypedConstant argument))
         {
-            if (argument.Kind != TypedConstantKind.Array || argument.IsNull)
+            if (!argument.IsNull)
             {
-                transformerType = null;
-                validAttribute = false;
-                transformerArguments = [];
+                if (argument.Kind != TypedConstantKind.Array)
+                {
+                    transformerName = null;
+                    validAttribute = false;
+                    transformerArguments = [];
+                }
+                else
+                {
+                    transformerArguments = [.. argument.Values.Select(TransformerArgument.FromConstant)];
+                }
             }
-            else
-            {
-                transformerArguments = [.. argument.Values.Select(TransformerArgument.FromConstant)];
-            }
+        }
+
+        if (transformerType is TransformerType.None && returnType is ReturnType.ByteArray)
+        {
+            // If the return type is byte[] and no transformer is specified, we default to the binary transformer.
+            transformerType = TransformerType.Binary;
         }
 
         var member = new CompressAttributeInfo()
@@ -277,7 +295,8 @@ internal static class CompressStaticsTransforms
             SourceValue = sourceValue,
             FilePath = path,
             RelativeToProject = relativeToProject,
-            Transformer = transformerType,
+            TransformerType = transformerType,
+            Transformer = transformerName,
             TransformerMember = transformerMember,
             TransformerArguments = transformerArguments,
             Location = location,

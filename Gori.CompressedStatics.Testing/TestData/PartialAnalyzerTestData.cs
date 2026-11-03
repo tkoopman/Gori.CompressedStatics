@@ -79,6 +79,7 @@ internal sealed class PartialAnalyzerTestData : IEnumerable<TheoryDataRow<MockSo
                         ],
                     },
                     new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBePartial) { IsExpected = true, Message = $"[{Const.CompressStringAttributeShortName}]" },
+                    DiagnosticExpectation.NoOthers,
                 ],
             })
         {
@@ -113,6 +114,7 @@ internal sealed class PartialAnalyzerTestData : IEnumerable<TheoryDataRow<MockSo
                         ],
                     },
                     new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBePartial) { IsExpected = true, Message = $"[{Const.CompressStringAttributeShortName}]" },
+                    DiagnosticExpectation.NoOthers,
                 ],
             })
         {
@@ -147,6 +149,7 @@ internal sealed class PartialAnalyzerTestData : IEnumerable<TheoryDataRow<MockSo
                         ],
                     },
                     new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBePartial) { IsExpected = true, Message = $"[{Const.CompressFileAttributeShortName}]" },
+                    DiagnosticExpectation.NoOthers,
                 ],
             })
         {
@@ -180,6 +183,7 @@ internal sealed class PartialAnalyzerTestData : IEnumerable<TheoryDataRow<MockSo
                         ],
                     },
                     new DiagnosticExpectation(DiagnosticDescriptors.TypeMustBePartial) { IsExpected = true, Message = $"[{Const.TarCompressAttributeShortName}]" },
+                    DiagnosticExpectation.NoOthers,
                 ],
             })
         {
@@ -219,6 +223,7 @@ internal sealed class PartialAnalyzerTestData : IEnumerable<TheoryDataRow<MockSo
                         ],
                     },
                     new DiagnosticExpectation(DiagnosticDescriptors.MemberMustBePartialWhenTarHasStaticConstructor) { IsExpected = true, Message = "'Sample' declares" },
+                    DiagnosticExpectation.NoOthers,
                 ],
             })
         {

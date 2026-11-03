@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 
 using Gori.Common.Roslyn.Test;
@@ -17,19 +18,23 @@ public sealed class ProcessingValidityTests
     [MemberData(nameof(MemberKinds))]
     public void FailedTransformationWithWarningStillPermanentlyInvalidates(bool binary)
     {
-        CompressAttributeInfo member = CreateMember(binary) with { Transformer = typeof(FailingWarningTransformer).AssemblyQualifiedName };
+        CompressAttributeInfo member = CreateMember(binary) with
+        {
+            Transformer = typeof(FailingWarningTransformer).AssemblyQualifiedName,
+            TransformerType = binary ? TransformerType.Binary : TransformerType.String,
+        };
         ProcessingResult<CompressAttributeInfo> result = member.TransformInput(
             Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("Test"), TestContext.Current.CancellationToken);
         Assert.False(result.Input.IsValid);
         Assert.Null(result.Input.SourceValue);
         Assert.Empty(result.Input.SourceBytes.ToArray());
-        Assert.Equal(DiagnosticSeverity.Warning, Assert.IsType<DiagnosticInfo>(result.Diagnostic).Severity);
+        Assert.Equal(DiagnosticSeverity.Warning, Assert.Single(result.Diagnostics).Severity);
         Assert.Equal(result.Input, result.Input.WithSourceValue("replacement"));
         Assert.Equal(result.Input, result.Input.WithSourceBytes([1, 2]));
         ProcessingResult<CompressAttributeInfo> repeated = result.Input.TransformInput(
             Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("Test"), TestContext.Current.CancellationToken);
         Assert.Equal(result.Input, repeated.Input);
-        Assert.Null(repeated.Diagnostic);
+        Assert.Empty(repeated.Diagnostics);
     }
 
     [Theory]
@@ -46,10 +51,10 @@ public sealed class ProcessingValidityTests
         Assert.False(result.Input.IsValid);
         Assert.Null(result.Input.SourceValue);
         Assert.Empty(result.Input.SourceBytes.ToArray());
-        Assert.Equal(DiagnosticDescriptors.BrotliNotAvailable, Assert.IsType<DiagnosticInfo>(result.Diagnostic).Descriptor);
+        Assert.Equal(DiagnosticDescriptors.BrotliNotAvailable, Assert.Single(result.Diagnostics).Descriptor);
         ProcessingResult<CompressAttributeInfo> repeated = CompressStaticsTransforms.ValidateCompression(result.Input, default);
         Assert.Equal(result.Input, repeated.Input);
-        Assert.Null(repeated.Diagnostic);
+        Assert.Empty(repeated.Diagnostics);
         Assert.Equal(result.Input, CompressStaticsTransforms.ValidateCompression(result.Input,
             new Supports { BrotliCompileTime = true, BrotliRuntime = BrotliSupport.Modern }).Input);
     }
@@ -73,12 +78,12 @@ public sealed class ProcessingValidityTests
         Assert.False(invalidMember.IsValid);
         Assert.Null(invalidMember.SourceValue);
         Assert.Empty(invalidMember.SourceBytes.ToArray());
-        Assert.Equal(DiagnosticDescriptors.BrotliNotAvailable, Assert.IsType<DiagnosticInfo>(result.Diagnostic).Descriptor);
+        Assert.Equal(DiagnosticDescriptors.BrotliNotAvailable, Assert.Single(result.Diagnostics).Descriptor);
         Assert.Equal(result.Input, result.Input.Invalidate());
         Assert.Equal(result.Input, CompressStaticsTransforms.ResolveTarMembers(result.Input, [member], TestContext.Current.CancellationToken));
         ProcessingResult<TarMembers> repeated = CompressStaticsTransforms.ValidateCompression(result.Input, default);
         Assert.Equal(result.Input, repeated.Input);
-        Assert.Null(repeated.Diagnostic);
+        Assert.Empty(repeated.Diagnostics);
         Assert.NotEqual(group, result.Input);
         Assert.False(TarMembers.EmissionComparer.Equals(group, result.Input));
         Assert.True(member.IsValid);
@@ -124,6 +129,32 @@ public sealed class ProcessingValidityTests
         Assert.Equal(original, Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources).SourceText.ToString());
         Assert.Equal(IncrementalStepRunReason.Cached, Assert.Single(Assert.Single(Assert.Single(driver.GetRunResult().Results)
             .TrackedSteps[tar ? CompressStaticsGenerator.TarTrackingName : CompressStaticsGenerator.IndividualMemberTrackingName]).Outputs).Reason);
+    }
+
+    [Fact]
+    public async Task SuccessfulTransformationReportsMultipleDiagnosticsAndEmitsOutput()
+    {
+        var project = MockProject.Create(typeof(CompressFileAttribute).Assembly, new MockSourceData
+        {
+            SourceCode = $$"""
+                using Gori.CompressedStatics;
+                public static partial class Sample
+                {
+                    [CompressString("payload", Transformer = "{{typeof(MultipleDiagnosticTransformer).AssemblyQualifiedName}}")]
+                    public static partial string Value { get; }
+                }
+                """,
+        }, out _, cancellationToken: TestContext.Current.CancellationToken);
+        GeneratorDriver driver = project.CreateGeneratorDriver<CompressStaticsGenerator>()
+            .RunGeneratorsAndUpdateCompilation(await project.GetCompilationAsync(), out _, out _, TestContext.Current.CancellationToken);
+
+        GeneratorRunResult result = Assert.Single(driver.GetRunResult().Results);
+        Assert.Null(result.Exception);
+        Assert.Equal(
+            [DiagnosticSeverity.Warning, DiagnosticSeverity.Info, DiagnosticSeverity.Error],
+            result.Diagnostics.Select(diagnostic => diagnostic.Severity));
+        string generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+        Assert.Contains("=> \"x\";", generatedSource, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -236,23 +267,39 @@ public sealed class ProcessingValidityTests
             Location = default,
         };
 
+    public sealed class MultipleDiagnosticTransformer : IStringTransformer
+    {
+        public bool TryTransform(ICompressionAttributeInfo attribute,
+            [NotNullWhen(true)] out string? output, out ImmutableArray<DiagnosticInfo> diagnostics, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            output = "x";
+            diagnostics = [
+                new DiagnosticInfo(TransformerGeneratorTests.DiagnosticTransformer.Descriptor) { Severity = DiagnosticSeverity.Warning },
+                new DiagnosticInfo(TransformerGeneratorTests.DiagnosticTransformer.Descriptor) { Severity = DiagnosticSeverity.Info },
+                new DiagnosticInfo(TransformerGeneratorTests.DiagnosticTransformer.Descriptor) { Severity = DiagnosticSeverity.Error },
+            ];
+            return true;
+        }
+    }
+
     public sealed class FailingWarningTransformer : IStringTransformer, IBinaryTransformer
     {
-        public bool TryTransform(ICompressionAttributeInfo attribute, Compilation compilation,
-            [NotNullWhen(true)] out string? output, [NotNullWhen(false)] out DiagnosticInfo? diagnostic, CancellationToken cancellationToken)
+        public bool TryTransform(ICompressionAttributeInfo attribute,
+            [NotNullWhen(true)] out string? output, out ImmutableArray<DiagnosticInfo> diagnostics, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             output = "ignored output";
-            diagnostic = new DiagnosticInfo(TransformerGeneratorTests.DiagnosticTransformer.Descriptor);
+            diagnostics = [new DiagnosticInfo(TransformerGeneratorTests.DiagnosticTransformer.Descriptor)];
             return false;
         }
 
-        public bool TryTransform(ICompressionAttributeInfo attribute, Compilation compilation,
-            [NotNullWhen(true)] out byte[]? output, [NotNullWhen(false)] out DiagnosticInfo? diagnostic, CancellationToken cancellationToken)
+        public bool TryTransform(ICompressionAttributeInfo attribute,
+            [NotNullWhen(true)] out byte[]? output, out ImmutableArray<DiagnosticInfo> diagnostics, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             output = [1, 2, 3];
-            diagnostic = new DiagnosticInfo(TransformerGeneratorTests.DiagnosticTransformer.Descriptor);
+            diagnostics = [new DiagnosticInfo(TransformerGeneratorTests.DiagnosticTransformer.Descriptor)];
             return false;
         }
     }

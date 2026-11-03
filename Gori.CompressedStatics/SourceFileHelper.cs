@@ -25,7 +25,8 @@ internal static class SourceFileHelper
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (!string.IsNullOrWhiteSpace(tree.FilePath)
+            if (tree.FilePath is not null
+                && !tree.FilePath.IsWhiteSpace()
                 && StringComparer.Ordinal.Equals(Path.GetFullPath(tree.FilePath), absoluteFilePath))
             {
                 return tree;

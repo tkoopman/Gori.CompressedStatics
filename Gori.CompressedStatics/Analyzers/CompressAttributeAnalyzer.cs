@@ -21,10 +21,10 @@ public sealed class CompressAttributeAnalyzer : DiagnosticAnalyzer
         => [
             DiagnosticDescriptors.MemberMustBeStatic,
             DiagnosticDescriptors.MemberMustBePartial,
+            DiagnosticDescriptors.MemberMustReturnStringOrByteArray,
             DiagnosticDescriptors.GenericTypesUnsupported,
             DiagnosticDescriptors.MethodMustHaveNoParameters,
             DiagnosticDescriptors.IgnoreCacheModeOnMethods,
-            DiagnosticDescriptors.MemberMustReturnStringOrByteArray,
             DiagnosticDescriptors.IgnoreAlgorithmOnTarMember,
             DiagnosticDescriptors.TypeMustBePartial,
             DiagnosticDescriptors.MemberMustBePartialWhenTarHasStaticConstructor,
@@ -33,21 +33,6 @@ public sealed class CompressAttributeAnalyzer : DiagnosticAnalyzer
             // These only raised by the generator. Added here so still show up in IDE.
             DiagnosticDescriptors.BrotliNotAvailable,
             DiagnosticDescriptors.InvalidBase64String,
-            DiagnosticDescriptors.TransformerTypeNotFound,
-            DiagnosticDescriptors.TransformerTypeNotConcreteClass,
-            DiagnosticDescriptors.TransformerIsAmbiguous,
-            DiagnosticDescriptors.TransformerTypeIsGeneric,
-            DiagnosticDescriptors.TransformerTypeNotAssignable,
-            DiagnosticDescriptors.TransformerTypeHasNoPublicParameterlessConstructor,
-            DiagnosticDescriptors.TransformerMemberNotFound,
-            DiagnosticDescriptors.TransformerMemberNotAssignable,
-            DiagnosticDescriptors.TransformerExceptionThrownLoadingInstance,
-            DiagnosticDescriptors.TransformerUnknownErrorLoadingInstance,
-            DiagnosticDescriptors.TransformerExceptionThrown,
-            DiagnosticDescriptors.InvalidCSharpTransformerSource,
-            DiagnosticDescriptors.TransformerConstructorNotFound,
-            DiagnosticDescriptors.TransformerConstructorIsAmbiguous,
-            DiagnosticDescriptors.InvalidTransformerArgument,
         ];
 
     /// <inheritdoc/>
@@ -142,7 +127,7 @@ public sealed class CompressAttributeAnalyzer : DiagnosticAnalyzer
                                     attributeType.GetShortName()));
                         }
 
-                        if (!AttributeHelper.IsValidReturnType(methodSymbol.ReturnType))
+                        if (!SymbolExtraction.GetReturnType(methodSymbol.ReturnType).IsValid())
                         {
                             context.ReportDiagnostic(
                                 Diagnostic.Create(
@@ -174,7 +159,7 @@ public sealed class CompressAttributeAnalyzer : DiagnosticAnalyzer
                         break;
 
                     case IPropertySymbol propertySymbol:
-                        if (!AttributeHelper.IsValidReturnType(propertySymbol.Type))
+                        if (!SymbolExtraction.GetReturnType(propertySymbol.Type).IsValid())
                         {
                             context.ReportDiagnostic(
                                 Diagnostic.Create(
